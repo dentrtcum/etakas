@@ -24,6 +24,7 @@ npm run build
 - `.env.example` yalnızca boş veya sahte değerler içerir.
 - `TRADING_MODE=demo` ve `LEGAL_APPROVAL_CONFIRMED=false` varsayılandır.
 - Production ortamında eksik güvenlik değişkenleri uygulamayı güvenli olmayan şekilde başlatmaz.
+- `npm run db:seed` yalnızca sentetik demo verileri üretir ve production ortamında çalışmaz.
 
 ## Phase 3 Başlangıç Akışları
 

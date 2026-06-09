@@ -18,3 +18,5 @@ The first migration creates the requested core entities: users, sessions, organi
 Ledger, audit and transaction rows are protected with database triggers that reject update and delete operations. Application-level corrections must use reversal or compensating transactions.
 
 `user_roles` stores global admin roles separately from `organization_members`, because admin privileges are platform-level and must not depend on a business membership row.
+
+The development seed uses fixed synthetic UUIDs and `onConflictDoNothing()` so it can be rerun without duplicating users, roles, organizations, ledger accounts, catalog products, batches or listings.
