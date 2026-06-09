@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { assertReviewReason, nextOrganizationStatus } from "@/modules/verification/organization-review";
+import {
+  assertReviewReason,
+  getAllowedOrganizationReviewDecisions,
+  nextOrganizationStatus
+} from "@/modules/verification/organization-review";
 
 describe("organization review state machine", () => {
   it("moves submitted applications under review", () => {
@@ -14,5 +18,10 @@ describe("organization review state machine", () => {
   it("requires meaningful admin reasons", () => {
     expect(() => assertReviewReason("eksik")).toThrow("at least 10");
     expect(() => assertReviewReason("Ruhsat belgesi okunaklı değil.")).not.toThrow();
+  });
+
+  it("exposes allowed decisions for admin UI controls", () => {
+    expect(getAllowedOrganizationReviewDecisions("SUBMITTED")).toEqual(["START_REVIEW", "REJECT"]);
+    expect(getAllowedOrganizationReviewDecisions("CLOSED")).toEqual([]);
   });
 });

@@ -28,6 +28,10 @@ const transitions: Record<OrganizationReviewStatus, OrganizationReviewDecision[]
   CLOSED: []
 };
 
+export function getAllowedOrganizationReviewDecisions(status: OrganizationReviewStatus) {
+  return transitions[status];
+}
+
 export function nextOrganizationStatus(
   currentStatus: OrganizationReviewStatus,
   decision: OrganizationReviewDecision

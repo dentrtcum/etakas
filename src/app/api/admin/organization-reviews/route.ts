@@ -1,24 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { z, ZodError } from "zod";
+import { ZodError } from "zod";
 import { requireAdmin } from "@/lib/auth/authorization";
 import { getCurrentAppUser } from "@/lib/auth/current-user";
+import { organizationReviewInputSchema, parseOrganizationReviewFormData } from "@/modules/verification/review-input";
 import { reviewOrganizationApplication } from "@/modules/verification/review-service";
 
 export const runtime = "nodejs";
-
-const reviewSchema = z.object({
-  organizationId: z.string().uuid(),
-  decision: z.enum([
-    "START_REVIEW",
-    "REQUEST_ADDITIONAL_DOCUMENT",
-    "APPROVE",
-    "REJECT",
-    "SUSPEND",
-    "REOPEN_REVIEW",
-    "CLOSE"
-  ]),
-  reason: z.string().min(10)
-});
 
 export async function POST(request: NextRequest) {
   const actor = await getCurrentAppUser();
@@ -33,7 +20,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const input = reviewSchema.parse(await request.json());
+    const contentType = request.headers.get("content-type") ?? "";
+    const input = contentType.includes("multipart/form-data")
+      ? parseOrganizationReviewFormData(await request.formData())
+      : organizationReviewInputSchema.parse(await request.json());
     const result = await reviewOrganizationApplication({
       actor,
       organizationId: input.organizationId,
