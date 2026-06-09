@@ -15,6 +15,16 @@ E-Takas targets Vercel.
 
 Production startup must fail closed if required security settings are missing.
 
+## Initial Admin
+
+After migrations, create the first super admin with:
+
+```bash
+npm run db:bootstrap-admin
+```
+
+The command requires `INITIAL_ADMIN_EMAIL` and `INITIAL_ADMIN_PASSWORD`; do not commit either value.
+
 ## Vercel Cron
 
 `vercel.json` schedules `/api/cron/complete-orders` hourly. Configure `CRON_SECRET` in Vercel and send it as `Authorization: Bearer <secret>` for manual runs.

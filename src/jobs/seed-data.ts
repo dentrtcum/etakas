@@ -38,28 +38,32 @@ export const syntheticSeedData = {
       email: "admin@example.invalid",
       name: "Sentetik Admin",
       totpEnabled: true,
-      role: "ADMIN_REVIEWER"
+      role: "ADMIN_REVIEWER",
+      password: "AdminDemo123!"
     },
     {
       id: seedIds.users.superAdmin,
       email: "superadmin@example.invalid",
       name: "Sentetik Super Admin",
       totpEnabled: true,
-      role: "SUPER_ADMIN"
+      role: "SUPER_ADMIN",
+      password: "SuperAdminDemo123!"
     },
     {
       id: seedIds.users.pharmacyOwner,
       email: "eczane@example.invalid",
       name: "Sentetik Eczane Yetkilisi",
       totpEnabled: false,
-      role: "ORGANIZATION_OWNER"
+      role: "ORGANIZATION_OWNER",
+      password: "EczaneDemo123!"
     },
     {
       id: seedIds.users.clinicOwner,
       email: "klinik@example.invalid",
       name: "Sentetik Klinik Yetkilisi",
       totpEnabled: false,
-      role: "ORGANIZATION_OWNER"
+      role: "ORGANIZATION_OWNER",
+      password: "KlinikDemo123!"
     }
   ],
   organizations: [

@@ -10,6 +10,7 @@ Bu repo varsayılan olarak yalnızca demo modunda çalışır. Gerçek takas iş
 npm install
 npm run db:migrate
 npm run db:seed
+npm run db:bootstrap-admin
 npm run dev
 npm run lint
 npm run typecheck
@@ -25,6 +26,16 @@ npm run build
 - `TRADING_MODE=demo` ve `LEGAL_APPROVAL_CONFIRMED=false` varsayılandır.
 - Production ortamında eksik güvenlik değişkenleri uygulamayı güvenli olmayan şekilde başlatmaz.
 - `npm run db:seed` yalnızca sentetik demo verileri üretir ve production ortamında çalışmaz.
+- `npm run db:bootstrap-admin` production için `INITIAL_ADMIN_EMAIL` ve `INITIAL_ADMIN_PASSWORD` ile ilk super admin kullanıcısını oluşturur veya parolasını günceller.
+
+## Demo Kullanıcıları
+
+`npm run db:seed` sonrasında local/demo ortamında kullanılabilecek sentetik hesaplar:
+
+- `admin@example.invalid` / `AdminDemo123!`
+- `superadmin@example.invalid` / `SuperAdminDemo123!`
+- `eczane@example.invalid` / `EczaneDemo123!`
+- `klinik@example.invalid` / `KlinikDemo123!`
 
 ## Phase 3 Başlangıç Akışları
 

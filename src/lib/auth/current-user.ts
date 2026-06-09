@@ -1,20 +1,12 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { organizationMembers, userRoles, users } from "@/lib/db/schema";
-import { getCurrentAuthSession } from "@/lib/auth/session";
+import { getSessionUserIdFromCookie } from "@/lib/auth/app-session";
 import { isAdminRole, type AppRole, type AppSessionUser } from "@/lib/auth/roles";
 import { serverEnv } from "@/lib/env";
 
-type AuthSessionShape = {
-  user?: {
-    id?: string;
-    email?: string;
-  };
-} | null;
-
 export async function getCurrentAppUser(): Promise<AppSessionUser | null> {
-  const session = (await getCurrentAuthSession()) as AuthSessionShape;
-  const userId = session?.user?.id;
+  const userId = await getSessionUserIdFromCookie();
 
   if (!userId || !serverEnv.DATABASE_URL) {
     return null;

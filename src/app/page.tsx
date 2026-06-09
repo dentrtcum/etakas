@@ -1,4 +1,5 @@
 import { ShieldCheck, ClipboardCheck, LockKeyhole, Scale } from "lucide-react";
+import Link from "next/link";
 
 const cards = [
   {
@@ -40,6 +41,17 @@ export default function HomePage() {
               stok uygunluğu, ledger bazlı takas bakiyesi ve admin denetimi etrafında kurulan
               güvenli B2B koordinasyon platformu.
             </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link className="rounded-md bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-white" href="/giris">
+                Giriş
+              </Link>
+              <Link className="rounded-md border border-[var(--line)] px-5 py-3 text-sm font-semibold" href="/isletme-kaydi">
+                İşletme kaydı
+              </Link>
+              <Link className="rounded-md border border-[var(--line)] px-5 py-3 text-sm font-semibold" href="/panel">
+                Panel
+              </Link>
+            </div>
           </div>
           <div className="grid gap-3 self-center">
             {cards.map((card) => {

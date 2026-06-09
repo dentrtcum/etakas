@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "@/lib/db/client";
+import { hashPassword } from "@/lib/auth/password";
 import {
   auditLogs,
   ledgerAccounts,
@@ -40,6 +41,7 @@ await db.transaction(async (tx) => {
         email: user.email,
         name: user.name,
         emailVerified: true,
+        passwordHash: hashPassword(user.password),
         totpEnabled: user.totpEnabled
       })
       .onConflictDoNothing();
