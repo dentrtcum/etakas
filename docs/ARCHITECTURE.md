@@ -30,3 +30,4 @@ Domain rules live under `src/modules/*` and data access under `src/lib/db`. Reac
 - Better Auth is mounted under `/api/auth/[...all]` with Node.js runtime, Drizzle adapter, email/password auth and two-factor plugin support.
 - Application authorization is centralized in `src/lib/auth/authorization.ts` and must be reused by server actions, route handlers and admin pages.
 - Admin access requires both an admin role and TOTP enrollment; organization users are constrained by organization membership.
+- Organization applications are validated through a Zod schema before persistence; audit summaries intentionally omit raw tax, license, address and phone values.

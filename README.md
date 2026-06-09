@@ -24,3 +24,10 @@ npm run build
 - `.env.example` yalnızca boş veya sahte değerler içerir.
 - `TRADING_MODE=demo` ve `LEGAL_APPROVAL_CONFIRMED=false` varsayılandır.
 - Production ortamında eksik güvenlik değişkenleri uygulamayı güvenli olmayan şekilde başlatmaz.
+
+## Phase 3 Başlangıç Akışları
+
+- Auth endpointleri: `/api/auth/[...all]`
+- Giriş ekranı: `/giris`
+- İşletme başvurusu: `/isletme-kaydi`
+- Admin panel başlangıcı: `/admin36100`
