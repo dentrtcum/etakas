@@ -52,4 +52,12 @@ export function assertProductionSafety() {
   if (serverEnv.TRADING_MODE === "production" && !serverEnv.LEGAL_APPROVAL_CONFIRMED) {
     throw new Error("Production trading mode requires LEGAL_APPROVAL_CONFIRMED=true.");
   }
+
+  if (serverEnv.FILE_SCANNER_PROVIDER === "mock") {
+    throw new Error("Production file scanning cannot use the mock provider.");
+  }
+
+  if (serverEnv.EMAIL_PROVIDER === "console") {
+    throw new Error("Production email cannot use the console provider.");
+  }
 }

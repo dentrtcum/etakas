@@ -26,3 +26,4 @@
 - Transactional order, hold and reservation mutations.
 - Private object storage with signed access.
 - Fail-closed production configuration.
+- AES-256-GCM field encryption and keyed hashes for PII and serial duplicate checks.

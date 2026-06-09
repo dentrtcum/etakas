@@ -17,3 +17,10 @@ Drizzle is selected over Prisma because E-Takas relies on explicit database cons
 ## Module Boundaries
 
 Domain rules live under `src/modules/*` and data access under `src/lib/db`. React components do not own trading policy, authorization, ledger, stock or legal-mode decisions.
+
+## Phase 2 Domain Baseline
+
+- `TradingPolicyService` starts as a default-deny policy module for high-risk categories and cross-organization medicine visibility.
+- `LedgerService` starts with integer kuruş validation and double-entry balancing helpers.
+- `InventoryService` starts with quantity conservation and reservation/release helpers.
+- Drizzle schema and SQL migration are both checked into the repo so schema intent is reviewable before a live database exists.
