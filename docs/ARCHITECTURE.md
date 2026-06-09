@@ -31,3 +31,10 @@ Domain rules live under `src/modules/*` and data access under `src/lib/db`. Reac
 - Application authorization is centralized in `src/lib/auth/authorization.ts` and must be reused by server actions, route handlers and admin pages.
 - Admin access requires both an admin role and TOTP enrollment; organization users are constrained by organization membership.
 - Organization applications are validated through a Zod schema before persistence; audit summaries intentionally omit raw tax, license, address and phone values.
+
+## Listing Baseline
+
+- Inventory listing submission creates a product batch and a `PENDING_REVIEW` listing in one transaction.
+- Sensitive lot and invoice fields are encrypted before persistence.
+- Admin approval is required before a listing can become `ACTIVE`.
+- High-risk categories such as cold-chain, biological and non-standard control categories are blocked by default.

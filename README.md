@@ -32,3 +32,10 @@ npm run build
 - Giriş ekranı: `/giris`
 - İşletme başvurusu: `/isletme-kaydi`
 - Admin panel başlangıcı: `/admin36100`
+- İlan oluşturma başlangıcı: `/ilan-olustur`
+
+## Ürün ve İlan Akışı
+
+- İşletme ilanları `/api/listings` üzerinden `PENDING_REVIEW` durumuyla admin incelemesine gönderilir.
+- Admin ilan kararları `/api/admin/listing-reviews` veya `/admin36100` paneli üzerinden verilir.
+- Soğuk zincir, biyolojik ve standart dışı kontrol kategorileri varsayılan olarak ilana kapalıdır.

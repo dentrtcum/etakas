@@ -9,3 +9,7 @@ Initial implementation phases establish the secure project, database schema and 
 Admins review applications through a state machine. Applications move from `SUBMITTED` to `UNDER_REVIEW`, then to `APPROVED`, `REJECTED`, `ADDITIONAL_DOCUMENT_REQUIRED` or `SUSPENDED`. Every decision requires a meaningful reason and must be written to audit logs when persistence is connected.
 
 Phase 4 adds `/api/admin/organization-reviews`, which requires an authenticated admin with TOTP enabled. Approval creates the organization's ledger account.
+
+## Listing Review
+
+The admin panel also lists `PENDING_REVIEW` and `CHANGES_REQUESTED` listings. Admins can approve, request changes, reject or remove listings. Approval changes the listing to `ACTIVE`; all decisions create audit logs.

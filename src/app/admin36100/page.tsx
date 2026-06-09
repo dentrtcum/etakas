@@ -1,10 +1,13 @@
-import { CheckCircle2, FileQuestion, LockKeyhole, ShieldCheck, XCircle } from "lucide-react";
+import { CheckCircle2, FileQuestion, LockKeyhole, PackageSearch, ShieldCheck, XCircle } from "lucide-react";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/authorization";
 import { getCurrentAppUser } from "@/lib/auth/current-user";
+import { getAllowedListingReviewDecisions } from "@/modules/listings/listing-review";
+import { listListingReviewQueue } from "@/modules/listings/listing-queries";
 import { getAllowedOrganizationReviewDecisions } from "@/modules/verification/organization-review";
 import { listOrganizationReviewQueue } from "@/modules/verification/review-queries";
 import { reviewOrganizationAction } from "@/app/admin36100/actions";
+import { reviewListingAction } from "@/app/admin36100/listing-actions";
 
 const typeLabels = {
   PHARMACY: "Eczane",
@@ -21,6 +24,13 @@ const decisionLabels = {
   SUSPEND: "Askıya al",
   REOPEN_REVIEW: "Yeniden incele",
   CLOSE: "Kapat"
+} as const;
+
+const listingDecisionLabels = {
+  APPROVE: "Onayla",
+  REQUEST_CHANGES: "Değişiklik iste",
+  REJECT: "Reddet",
+  REMOVE: "Kaldır"
 } as const;
 
 const statusColors = {
@@ -43,6 +53,7 @@ export default async function AdminHomePage() {
   }
 
   const reviewRows = await listOrganizationReviewQueue();
+  const listingRows = await listListingReviewQueue();
 
   return (
     <main className="min-h-screen bg-[var(--background)]">
@@ -140,6 +151,96 @@ export default async function AdminHomePage() {
           <XCircle aria-hidden="true" size={16} />
           Her karar audit log üretir; onaylanan işletme için ledger hesabı oluşturulur.
         </div>
+
+        <div className="mt-12 mb-8 flex flex-col gap-3 border-b border-[var(--line)] pb-6">
+          <div className="flex items-center gap-3 text-[var(--primary)]">
+            <PackageSearch aria-hidden="true" size={22} />
+            <p className="text-sm font-semibold uppercase tracking-wide">İlan inceleme</p>
+          </div>
+          <h2 className="text-2xl font-bold">Onay bekleyen ilanlar</h2>
+        </div>
+
+        {listingRows.length === 0 ? (
+          <section className="rounded-md border border-[var(--line)] bg-white p-8 text-center">
+            <FileQuestion className="mx-auto text-[var(--muted)]" size={30} />
+            <h3 className="mt-3 text-lg font-semibold">İncelenecek ilan yok</h3>
+          </section>
+        ) : (
+          <div className="overflow-x-auto rounded-md border border-[var(--line)] bg-white">
+            <table className="w-full min-w-[1080px] border-collapse text-left text-sm">
+              <thead className="bg-slate-50 text-[var(--muted)]">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Ürün</th>
+                  <th className="px-4 py-3 font-semibold">Satıcı</th>
+                  <th className="px-4 py-3 font-semibold">Miktar</th>
+                  <th className="px-4 py-3 font-semibold">Referans değer</th>
+                  <th className="px-4 py-3 font-semibold">Durum</th>
+                  <th className="px-4 py-3 font-semibold">Karar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {listingRows.map((row) => {
+                  const decisions = getAllowedListingReviewDecisions(row.status);
+
+                  return (
+                    <tr className="border-t border-[var(--line)] align-top" key={row.id}>
+                      <td className="px-4 py-4">
+                        <div className="font-medium">{row.productName}</div>
+                        <div className="mt-1 text-xs text-[var(--muted)]">
+                          {row.productType} / GTIN {row.productGtin} / SKT {row.minExpiryDate}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div>{row.sellerPublicAlias}</div>
+                        <div className="mt-1 text-xs text-[var(--muted)]">
+                          {row.sellerProvince} / {row.sellerDistrict}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">{row.quantityAvailable}</td>
+                      <td className="px-4 py-4">{row.unitReferenceValueKurus} kr</td>
+                      <td className="px-4 py-4">
+                        <span className="inline-flex items-center gap-2 rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
+                          <LockKeyhole aria-hidden="true" size={14} />
+                          {row.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <form action={reviewListingAction} className="grid max-w-sm gap-2">
+                          <input name="listingId" type="hidden" value={row.id} />
+                          <select
+                            className="h-10 rounded-md border border-[var(--line)] bg-white px-3"
+                            name="decision"
+                            required
+                          >
+                            {decisions.map((decision) => (
+                              <option key={decision} value={decision}>
+                                {listingDecisionLabels[decision]}
+                              </option>
+                            ))}
+                          </select>
+                          <textarea
+                            className="min-h-20 rounded-md border border-[var(--line)] p-3"
+                            minLength={10}
+                            name="reason"
+                            placeholder="Gerekçe"
+                            required
+                          />
+                          <button
+                            className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--primary)] px-4 font-semibold text-white hover:bg-[var(--primary-strong)]"
+                            type="submit"
+                          >
+                            <CheckCircle2 aria-hidden="true" size={16} />
+                            Kaydet
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </main>
   );
