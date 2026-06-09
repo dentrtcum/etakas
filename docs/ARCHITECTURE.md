@@ -38,3 +38,12 @@ Domain rules live under `src/modules/*` and data access under `src/lib/db`. Reac
 - Sensitive lot and invoice fields are encrypted before persistence.
 - Admin approval is required before a listing can become `ACTIVE`.
 - High-risk categories such as cold-chain, biological and non-standard control categories are blocked by default.
+
+## Order Baseline
+
+- Marketplace listing visibility is server-side and hides human medicines from veterinary organizations.
+- Order creation locks the listing, batch and buyer ledger account in one PostgreSQL transaction.
+- Balance holds and inventory reservations are created atomically with the order.
+- Cancellation releases balance and stock reservations.
+- Completion consumes the hold, transfers reserved stock and posts balanced ledger entries.
+- Vercel Cron calls `/api/cron/complete-orders` with `CRON_SECRET` to complete eligible buyer-confirmation-pending orders.

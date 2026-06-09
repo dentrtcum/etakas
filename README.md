@@ -39,3 +39,12 @@ npm run build
 - İşletme ilanları `/api/listings` üzerinden `PENDING_REVIEW` durumuyla admin incelemesine gönderilir.
 - Admin ilan kararları `/api/admin/listing-reviews` veya `/admin36100` paneli üzerinden verilir.
 - Soğuk zincir, biyolojik ve standart dışı kontrol kategorileri varsayılan olarak ilana kapalıdır.
+
+## Marketplace ve Sipariş
+
+- Marketplace API: `/api/marketplace/listings?organizationId=...`
+- Sipariş rezervasyonu: `POST /api/orders`
+- Teslim beyanı: `POST /api/orders/:orderId/handover`
+- İptal: `POST /api/orders/:orderId/cancel`
+- Tamamlama: `POST /api/orders/:orderId/complete`
+- Cron otomatik tamamlama: `POST /api/cron/complete-orders` ve `Authorization: Bearer $CRON_SECRET`

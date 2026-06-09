@@ -14,3 +14,7 @@ E-Takas targets Vercel.
 - `LEGAL_APPROVAL_CONFIRMED=false` unless counsel approval is documented
 
 Production startup must fail closed if required security settings are missing.
+
+## Vercel Cron
+
+`vercel.json` schedules `/api/cron/complete-orders` hourly. Configure `CRON_SECRET` in Vercel and send it as `Authorization: Bearer <secret>` for manual runs.
