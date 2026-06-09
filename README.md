@@ -19,6 +19,29 @@ npm run test:e2e
 npm run build
 ```
 
+## Vercel ve Veritabanı Kurulumu
+
+Vercel deploy sonrası `/kurulum` sayfası ve `/api/setup/status` endpointi şu durumları gösterir:
+
+- Vercel environment variable eksikleri
+- PostgreSQL bağlantısı
+- Migration tabloları
+- Super admin kullanıcısı
+
+Minimum production env değerleri:
+
+```env
+DATABASE_URL=
+AUTH_SECRET=
+APP_URL=
+ENCRYPTION_KEY=
+CRON_SECRET=
+TRADING_MODE=demo
+LEGAL_APPROVAL_CONFIRMED=false
+INITIAL_ADMIN_EMAIL=
+INITIAL_ADMIN_PASSWORD=
+```
+
 ## Güvenli Varsayılanlar
 
 - `.env` dosyaları Git'e eklenmez.
