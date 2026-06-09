@@ -24,3 +24,9 @@ Domain rules live under `src/modules/*` and data access under `src/lib/db`. Reac
 - `LedgerService` starts with integer kuruş validation and double-entry balancing helpers.
 - `InventoryService` starts with quantity conservation and reservation/release helpers.
 - Drizzle schema and SQL migration are both checked into the repo so schema intent is reviewable before a live database exists.
+
+## Phase 3 Auth Baseline
+
+- Better Auth is mounted under `/api/auth/[...all]` with Node.js runtime, Drizzle adapter, email/password auth and two-factor plugin support.
+- Application authorization is centralized in `src/lib/auth/authorization.ts` and must be reused by server actions, route handlers and admin pages.
+- Admin access requires both an admin role and TOTP enrollment; organization users are constrained by organization membership.
