@@ -1,6 +1,7 @@
 import { LockKeyhole, ShieldCheck } from "lucide-react";
 import { redirect } from "next/navigation";
-import { getCurrentAuthSession } from "@/lib/auth/session";
+import { requireAdmin } from "@/lib/auth/authorization";
+import { getCurrentAppUser } from "@/lib/auth/current-user";
 
 const reviewRows = [
   {
@@ -18,9 +19,14 @@ const reviewRows = [
 ];
 
 export default async function AdminHomePage() {
-  const session = await getCurrentAuthSession();
+  const actor = await getCurrentAppUser();
+  const authorization = requireAdmin(actor);
 
-  if (!session) {
+  if (!authorization.allowed && authorization.reason === "UNAUTHENTICATED") {
+    redirect("/giris");
+  }
+
+  if (!authorization.allowed) {
     redirect("/giris");
   }
 

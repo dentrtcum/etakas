@@ -146,6 +146,21 @@ export const sessions = pgTable(
   ]
 );
 
+export const userRoles = pgTable(
+  "user_roles",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: userRole("role").notNull(),
+    createdAt
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.role] }),
+    index("user_roles_role_idx").on(table.role)
+  ]
+);
+
 export const organizations = pgTable(
   "organizations",
   {

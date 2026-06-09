@@ -15,6 +15,13 @@
       "when": 1781029374744,
       "tag": "0001_harden_immutable_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781031083440,
+      "tag": "0003_awesome_colonel_america",
+      "breakpoints": true
     }
   ]
 }

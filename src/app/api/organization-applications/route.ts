@@ -4,6 +4,10 @@ import {
   toSafeApplicationAuditSummary,
   validateOrganizationApplication
 } from "@/modules/organizations/organization-application";
+import {
+  PersistenceConfigurationError,
+  submitOrganizationApplication
+} from "@/modules/organizations/application-service";
 
 export const runtime = "nodejs";
 
@@ -33,9 +37,12 @@ export async function POST(request: NextRequest) {
       termsAccepted: formData.get("termsAccepted") === "on"
     });
 
+    const result = await submitOrganizationApplication(application);
+
     return NextResponse.json(
       {
-        status: "SUBMITTED",
+        id: result.id,
+        status: result.status,
         auditSummary: toSafeApplicationAuditSummary(application)
       },
       { status: 202 }
@@ -43,6 +50,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json({ error: "INVALID_ORGANIZATION_APPLICATION" }, { status: 400 });
+    }
+
+    if (error instanceof PersistenceConfigurationError) {
+      return NextResponse.json({ error: "PERSISTENCE_NOT_CONFIGURED" }, { status: 503 });
     }
 
     throw error;

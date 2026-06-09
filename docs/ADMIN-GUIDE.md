@@ -7,3 +7,5 @@ Initial implementation phases establish the secure project, database schema and 
 ## Organization Review Baseline
 
 Admins review applications through a state machine. Applications move from `SUBMITTED` to `UNDER_REVIEW`, then to `APPROVED`, `REJECTED`, `ADDITIONAL_DOCUMENT_REQUIRED` or `SUSPENDED`. Every decision requires a meaningful reason and must be written to audit logs when persistence is connected.
+
+Phase 4 adds `/api/admin/organization-reviews`, which requires an authenticated admin with TOTP enabled. Approval creates the organization's ledger account.

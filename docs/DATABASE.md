@@ -16,3 +16,5 @@ The database is PostgreSQL. Dates are stored in UTC and displayed in `Europe/Ist
 The first migration creates the requested core entities: users, sessions, organizations, memberships, organization documents/reviews, product catalog, batches, package serials, listings, order flow, inventory reservations, balance holds, ledger accounts/transactions/entries, delivery confirmations, disputes, notifications, audit logs, policy/system settings, legal acceptances, login events and admin approvals.
 
 Ledger, audit and transaction rows are protected with database triggers that reject update and delete operations. Application-level corrections must use reversal or compensating transactions.
+
+`user_roles` stores global admin roles separately from `organization_members`, because admin privileges are platform-level and must not depend on a business membership row.
