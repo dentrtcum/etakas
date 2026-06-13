@@ -11,4 +11,5 @@
 - [ ] Vercel environment variables are configured.
 - [ ] `npm run db:migrate` has been run against production database.
 - [ ] `npm run db:bootstrap-admin` has created a real super admin with a non-demo password.
-- [ ] Cron endpoint returns 401 without `CRON_SECRET` and 200 with the configured secret.
+- [ ] Order completion requires seller delivery declaration and buyer confirmation.
+- [ ] Dispute and return flows are tested through admin order controls.

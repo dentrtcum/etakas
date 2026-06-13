@@ -13,3 +13,7 @@ Phase 4 adds `/api/admin/organization-reviews`, which requires an authenticated 
 ## Listing Review
 
 The admin panel also lists `PENDING_REVIEW` and `CHANGES_REQUESTED` listings. Admins can approve, request changes, reject or remove listings. Approval changes the listing to `ACTIVE`; all decisions create audit logs.
+
+## Order, Dispute and Return Control
+
+Orders are not completed automatically. The seller first declares delivery, then the buyer confirms delivery. If a party disputes delivery or a return is needed, admins use the order section to freeze, cancel, force-complete or refund completed orders with a required reason.

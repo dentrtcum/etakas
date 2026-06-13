@@ -11,7 +11,6 @@ export async function GET() {
       status.env.databaseUrl &&
       status.env.authSecret &&
       status.env.encryptionKey &&
-      status.env.cronSecret &&
       status.database.connected &&
       status.database.migrationsApplied &&
       status.data.superAdminExists,

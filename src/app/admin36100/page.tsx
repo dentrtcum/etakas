@@ -1,13 +1,15 @@
-import { CheckCircle2, FileQuestion, LockKeyhole, PackageSearch, ShieldCheck, XCircle } from "lucide-react";
+import { CheckCircle2, FileQuestion, LockKeyhole, PackageSearch, RotateCcw, ShieldCheck, XCircle } from "lucide-react";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/authorization";
 import { getCurrentAppUser } from "@/lib/auth/current-user";
 import { getAllowedListingReviewDecisions } from "@/modules/listings/listing-review";
 import { listListingReviewQueue } from "@/modules/listings/listing-queries";
+import { listAdminOrderQueue } from "@/modules/orders/order-queries";
 import { getAllowedOrganizationReviewDecisions } from "@/modules/verification/organization-review";
 import { listOrganizationReviewQueue } from "@/modules/verification/review-queries";
 import { reviewOrganizationAction } from "@/app/admin36100/actions";
 import { reviewListingAction } from "@/app/admin36100/listing-actions";
+import { adminOrderAction } from "@/app/admin36100/order-actions";
 
 const typeLabels = {
   PHARMACY: "Eczane",
@@ -33,6 +35,13 @@ const listingDecisionLabels = {
   REMOVE: "Kaldır"
 } as const;
 
+const orderDecisionLabels = {
+  FREEZE: "Dondur",
+  CANCEL: "İptal/iade et",
+  FORCE_COMPLETE: "Zorla tamamla",
+  REFUND_COMPLETED: "Tamamlanan işlemi iade et"
+} as const;
+
 const statusColors = {
   SUBMITTED: "bg-sky-50 text-sky-800",
   UNDER_REVIEW: "bg-amber-50 text-amber-800",
@@ -54,6 +63,7 @@ export default async function AdminHomePage() {
 
   const reviewRows = await listOrganizationReviewQueue();
   const listingRows = await listListingReviewQueue();
+  const orderRows = await listAdminOrderQueue();
 
   return (
     <main className="min-h-screen bg-[var(--background)]">
@@ -237,6 +247,84 @@ export default async function AdminHomePage() {
                     </tr>
                   );
                 })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className="mt-12 mb-8 flex flex-col gap-3 border-b border-[var(--line)] pb-6">
+          <div className="flex items-center gap-3 text-[var(--primary)]">
+            <RotateCcw aria-hidden="true" size={22} />
+            <p className="text-sm font-semibold uppercase tracking-wide">Sipariş / itiraz / iade</p>
+          </div>
+          <h2 className="text-2xl font-bold">Admin kontrollü sipariş işlemleri</h2>
+        </div>
+
+        {orderRows.length === 0 ? (
+          <section className="rounded-md border border-[var(--line)] bg-white p-8 text-center">
+            <FileQuestion className="mx-auto text-[var(--muted)]" size={30} />
+            <h3 className="mt-3 text-lg font-semibold">İncelenecek sipariş yok</h3>
+          </section>
+        ) : (
+          <div className="overflow-x-auto rounded-md border border-[var(--line)] bg-white">
+            <table className="w-full min-w-[1120px] border-collapse text-left text-sm">
+              <thead className="bg-slate-50 text-[var(--muted)]">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Sipariş</th>
+                  <th className="px-4 py-3 font-semibold">Taraflar</th>
+                  <th className="px-4 py-3 font-semibold">Miktar</th>
+                  <th className="px-4 py-3 font-semibold">Takas değeri</th>
+                  <th className="px-4 py-3 font-semibold">Durum</th>
+                  <th className="px-4 py-3 font-semibold">Admin kararı</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orderRows.map((row) => (
+                  <tr className="border-t border-[var(--line)] align-top" key={row.id}>
+                    <td className="px-4 py-4">
+                      <div className="font-medium">{row.id}</div>
+                      <div className="mt-1 text-xs text-[var(--muted)]">İlan: {row.listingId}</div>
+                    </td>
+                    <td className="px-4 py-4 text-xs">
+                      <div>Alıcı: {row.buyerOrganizationId}</div>
+                      <div className="mt-1">Satıcı: {row.sellerOrganizationId}</div>
+                    </td>
+                    <td className="px-4 py-4">{row.quantity}</td>
+                    <td className="px-4 py-4">{row.totalReferenceValueKurus} kr</td>
+                    <td className="px-4 py-4">
+                      <span className="inline-flex items-center gap-2 rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
+                        <LockKeyhole aria-hidden="true" size={14} />
+                        {row.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4">
+                      <form action={adminOrderAction} className="grid max-w-sm gap-2">
+                        <input name="orderId" type="hidden" value={row.id} />
+                        <select className="h-10 rounded-md border border-[var(--line)] bg-white px-3" name="decision" required>
+                          {Object.entries(orderDecisionLabels).map(([decision, label]) => (
+                            <option key={decision} value={decision}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                        <textarea
+                          className="min-h-20 rounded-md border border-[var(--line)] p-3"
+                          minLength={10}
+                          name="reason"
+                          placeholder="Gerekçe"
+                          required
+                        />
+                        <button
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--primary)] px-4 font-semibold text-white hover:bg-[var(--primary-strong)]"
+                          type="submit"
+                        >
+                          <CheckCircle2 aria-hidden="true" size={16} />
+                          Kaydet
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

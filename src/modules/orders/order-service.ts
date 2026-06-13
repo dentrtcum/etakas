@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, isNull, lte, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { requireOrganizationAccess } from "@/lib/auth/authorization";
 import type { AppSessionUser } from "@/lib/auth/roles";
 import { getDb } from "@/lib/db/client";
 import {
   auditLogs,
   balanceHolds,
+  disputes,
   inventoryReservations,
   ledgerAccounts,
   ledgerEntries,
@@ -286,19 +287,105 @@ export async function markSellerHandover(actor: AppSessionUser, orderId: string)
       throw new OrderFlowError("Order cannot be handed over from current status.");
     }
 
-    const autoCompleteAfter = new Date(Date.now() + 24 * 60 * 60 * 1000);
     const [updated] = await tx
       .update(orders)
       .set({
         status: "BUYER_CONFIRMATION_PENDING",
         handoverDeclaredAt: new Date(),
-        autoCompleteAfter,
+        autoCompleteAfter: null,
         updatedAt: new Date()
       })
       .where(eq(orders.id, orderId))
       .returning({ id: orders.id, status: orders.status });
 
     return updated;
+  });
+}
+
+export async function confirmBuyerDelivery(actor: AppSessionUser, orderId: string) {
+  const db = getDb();
+  const [order] = await db
+    .select({
+      id: orders.id,
+      buyerOrganizationId: orders.buyerOrganizationId,
+      status: orders.status
+    })
+    .from(orders)
+    .where(eq(orders.id, orderId))
+    .limit(1);
+
+  if (!order) throw new OrderFlowError("Order not found.");
+
+  const authorization = requireOrganizationAccess(actor, order.buyerOrganizationId, [
+    "ORGANIZATION_OWNER",
+    "ORGANIZATION_MANAGER",
+    "ORDER_MANAGER"
+  ]);
+
+  if (!authorization.allowed) throw new OrderFlowError(authorization.reason);
+  if (order.status !== "BUYER_CONFIRMATION_PENDING") {
+    throw new OrderFlowError("Buyer can only confirm after seller delivery declaration.");
+  }
+
+  return completeOrder(orderId, actor.id);
+}
+
+export async function openOrderDispute(actor: AppSessionUser, orderId: string, reason: string) {
+  if (reason.trim().length < 10) {
+    throw new OrderFlowError("Dispute reason must be at least 10 characters.");
+  }
+
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    const [order] = await tx
+      .select({
+        id: orders.id,
+        buyerOrganizationId: orders.buyerOrganizationId,
+        sellerOrganizationId: orders.sellerOrganizationId,
+        status: orders.status
+      })
+      .from(orders)
+      .where(eq(orders.id, orderId))
+      .for("update")
+      .limit(1);
+
+    if (!order) throw new OrderFlowError("Order not found.");
+
+    const isBuyer = actor.organizationIds.includes(order.buyerOrganizationId);
+    const isSeller = actor.organizationIds.includes(order.sellerOrganizationId);
+    if (!isBuyer && !isSeller) {
+      throw new OrderFlowError("Only order parties can open disputes.");
+    }
+
+    if (["CANCELLED", "EXPIRED"].includes(order.status)) {
+      throw new OrderFlowError("Order cannot be disputed from current status.");
+    }
+
+    await tx
+      .update(orders)
+      .set({ status: "DISPUTED", updatedAt: new Date() })
+      .where(eq(orders.id, orderId));
+
+    await tx.insert(disputes).values({
+      orderId,
+      openedByUserId: actor.id,
+      status: "OPEN",
+      reason
+    });
+
+    await tx.insert(auditLogs).values({
+      actorUserId: actor.id,
+      organizationId: isBuyer ? order.buyerOrganizationId : order.sellerOrganizationId,
+      action: "ORDER_DISPUTE_OPENED",
+      targetType: "order",
+      targetId: orderId,
+      safeBefore: { status: order.status },
+      safeAfter: { status: "DISPUTED" },
+      correlationId: randomUUID(),
+      reason
+    });
+
+    return { id: orderId, status: "DISPUTED" as const };
   });
 }
 
@@ -396,7 +483,7 @@ export async function completeOrder(orderId: string, actorUserId: string | null 
 
     if (!order) throw new OrderFlowError("Order not found.");
     if (order.status === "COMPLETED") return { id: order.id, status: order.status };
-    if (!["BUYER_CONFIRMATION_PENDING", "HANDOVER_DECLARED"].includes(order.status)) {
+    if (!["BUYER_CONFIRMATION_PENDING", "HANDOVER_DECLARED", "DISPUTED", "ADMIN_FROZEN"].includes(order.status)) {
       throw new OrderFlowError("Order cannot be completed from current status.");
     }
 
@@ -517,23 +604,202 @@ export async function completeOrder(orderId: string, actorUserId: string | null 
   });
 }
 
-export async function completeEligibleOrders(now = new Date()) {
-  const db = getDb();
-  const eligible = await db
-    .select({ id: orders.id })
-    .from(orders)
-    .where(
-      and(
-        eq(orders.status, "BUYER_CONFIRMATION_PENDING"),
-        lte(orders.autoCompleteAfter, now)
-      )
-    )
-    .limit(25);
+async function releaseReservedOrder(tx: Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0], order: {
+  id: string;
+  listingId: string;
+  quantity: number;
+}) {
+  const [reservation] = await tx
+    .select({ id: inventoryReservations.id, batchId: inventoryReservations.batchId })
+    .from(inventoryReservations)
+    .where(and(eq(inventoryReservations.orderId, order.id), isNull(inventoryReservations.releasedAt)))
+    .limit(1);
 
-  const completed = [];
-  for (const order of eligible) {
-    completed.push(await completeOrder(order.id));
+  await tx
+    .update(balanceHolds)
+    .set({ releasedAt: new Date() })
+    .where(and(eq(balanceHolds.orderId, order.id), isNull(balanceHolds.releasedAt)));
+
+  if (reservation) {
+    await tx
+      .update(inventoryReservations)
+      .set({ releasedAt: new Date() })
+      .where(eq(inventoryReservations.id, reservation.id));
+    await tx
+      .update(productBatches)
+      .set({
+        availableQuantity: sql`${productBatches.availableQuantity} + ${order.quantity}`,
+        reservedQuantity: sql`${productBatches.reservedQuantity} - ${order.quantity}`,
+        updatedAt: new Date()
+      })
+      .where(eq(productBatches.id, reservation.batchId));
   }
 
-  return completed;
+  await tx
+    .update(listings)
+    .set({
+      quantityAvailable: sql`${listings.quantityAvailable} + ${order.quantity}`,
+      quantityReserved: sql`${listings.quantityReserved} - ${order.quantity}`,
+      status: "ACTIVE",
+      updatedAt: new Date()
+    })
+    .where(eq(listings.id, order.listingId));
+}
+
+export type AdminOrderDecision = "FREEZE" | "CANCEL" | "FORCE_COMPLETE" | "REFUND_COMPLETED";
+
+export async function adminResolveOrder({
+  actor,
+  orderId,
+  decision,
+  reason
+}: {
+  actor: AppSessionUser;
+  orderId: string;
+  decision: AdminOrderDecision;
+  reason: string;
+}) {
+  if (reason.trim().length < 10) {
+    throw new OrderFlowError("Admin order decision reason must be at least 10 characters.");
+  }
+
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    const [order] = await tx
+      .select({
+        id: orders.id,
+        buyerOrganizationId: orders.buyerOrganizationId,
+        sellerOrganizationId: orders.sellerOrganizationId,
+        listingId: orders.listingId,
+        quantity: orders.quantity,
+        status: orders.status,
+        totalReferenceValueKurus: orders.totalReferenceValueKurus
+      })
+      .from(orders)
+      .where(eq(orders.id, orderId))
+      .for("update")
+      .limit(1);
+
+    if (!order) throw new OrderFlowError("Order not found.");
+
+    if (decision === "FREEZE") {
+      const [updated] = await tx
+        .update(orders)
+        .set({ status: "ADMIN_FROZEN", updatedAt: new Date() })
+        .where(eq(orders.id, orderId))
+        .returning({ id: orders.id, status: orders.status });
+      return updated;
+    }
+
+    if (decision === "FORCE_COMPLETE") {
+      return completeOrder(orderId, actor.id);
+    }
+
+    if (decision === "CANCEL") {
+      if (order.status === "COMPLETED") {
+        throw new OrderFlowError("Completed order requires REFUND_COMPLETED.");
+      }
+      await releaseReservedOrder(tx, order);
+      const [updated] = await tx
+        .update(orders)
+        .set({ status: "CANCELLED", cancelledAt: new Date(), updatedAt: new Date() })
+        .where(eq(orders.id, orderId))
+        .returning({ id: orders.id, status: orders.status });
+      return updated;
+    }
+
+    if (decision === "REFUND_COMPLETED") {
+      if (order.status !== "COMPLETED") {
+        throw new OrderFlowError("Only completed orders can be refunded.");
+      }
+
+      const [buyerAccount] = await tx
+        .select({ id: ledgerAccounts.id })
+        .from(ledgerAccounts)
+        .where(eq(ledgerAccounts.organizationId, order.buyerOrganizationId))
+        .limit(1);
+      const [sellerAccount] = await tx
+        .select({ id: ledgerAccounts.id })
+        .from(ledgerAccounts)
+        .where(eq(ledgerAccounts.organizationId, order.sellerOrganizationId))
+        .limit(1);
+
+      if (!buyerAccount || !sellerAccount) {
+        throw new OrderFlowError("Ledger account is missing.");
+      }
+
+      const [ledgerTransaction] = await tx
+        .insert(ledgerTransactions)
+        .values({
+          type: "REVERSAL",
+          description: "Admin approved return/refund reversal.",
+          adminReason: reason,
+          orderId,
+          createdByUserId: actor.id
+        })
+        .returning({ id: ledgerTransactions.id });
+
+      await tx.insert(ledgerEntries).values([
+        {
+          transactionId: ledgerTransaction.id,
+          accountId: buyerAccount.id,
+          direction: "CREDIT",
+          amountKurus: order.totalReferenceValueKurus
+        },
+        {
+          transactionId: ledgerTransaction.id,
+          accountId: sellerAccount.id,
+          direction: "DEBIT",
+          amountKurus: order.totalReferenceValueKurus
+        }
+      ]);
+
+      const [reservation] = await tx
+        .select({ batchId: inventoryReservations.batchId })
+        .from(inventoryReservations)
+        .where(eq(inventoryReservations.orderId, orderId))
+        .limit(1);
+
+      if (reservation) {
+        await tx
+          .update(productBatches)
+          .set({
+            availableQuantity: sql`${productBatches.availableQuantity} + ${order.quantity}`,
+            transferredQuantity: sql`${productBatches.transferredQuantity} - ${order.quantity}`,
+            updatedAt: new Date()
+          })
+          .where(eq(productBatches.id, reservation.batchId));
+        await tx
+          .update(listings)
+          .set({
+            quantityAvailable: sql`${listings.quantityAvailable} + ${order.quantity}`,
+            status: "ACTIVE",
+            updatedAt: new Date()
+          })
+          .where(eq(listings.id, order.listingId));
+      }
+
+      const [updated] = await tx
+        .update(orders)
+        .set({ status: "CANCELLED", cancelledAt: new Date(), updatedAt: new Date() })
+        .where(eq(orders.id, orderId))
+        .returning({ id: orders.id, status: orders.status });
+      return updated;
+    }
+
+    throw new OrderFlowError("Unknown admin order decision.");
+  }).then(async (result) => {
+    await getDb().insert(auditLogs).values({
+      actorUserId: actor.id,
+      organizationId: null,
+      action: `ADMIN_ORDER_${decision}`,
+      targetType: "order",
+      targetId: orderId,
+      safeBefore: null,
+      safeAfter: { status: result?.status },
+      correlationId: randomUUID(),
+      reason
+    });
+    return result;
+  });
 }

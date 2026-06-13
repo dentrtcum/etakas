@@ -14,7 +14,6 @@ export const serverEnv = createEnv({
       .transform((value) => value === "true"),
     ENCRYPTION_KEY: z.string().optional(),
     BLOB_READ_WRITE_TOKEN: z.string().optional(),
-    CRON_SECRET: z.string().optional(),
     TRADING_MODE: z.enum(["demo", "pilot", "production"]).default("demo"),
     LEGAL_APPROVAL_CONFIRMED: z
       .enum(["true", "false"])
@@ -41,7 +40,6 @@ export function assertProductionSafety() {
     ["AUTH_SECRET", serverEnv.AUTH_SECRET],
     ["ENCRYPTION_KEY", serverEnv.ENCRYPTION_KEY],
     ["BLOB_READ_WRITE_TOKEN", serverEnv.BLOB_READ_WRITE_TOKEN],
-    ["CRON_SECRET", serverEnv.CRON_SECRET],
     ["FILE_SCANNER_PROVIDER", serverEnv.FILE_SCANNER_PROVIDER]
   ].filter(([, value]) => !value);
 

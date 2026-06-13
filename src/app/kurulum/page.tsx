@@ -31,7 +31,6 @@ export default async function SetupPage() {
             <StatusLine ok={status.env.databaseUrl} label="DATABASE_URL tanımlı" />
             <StatusLine ok={status.env.authSecret} label="AUTH_SECRET tanımlı" />
             <StatusLine ok={status.env.encryptionKey} label="ENCRYPTION_KEY tanımlı" />
-            <StatusLine ok={status.env.cronSecret} label="CRON_SECRET tanımlı" />
             <StatusLine ok={status.database.connected} label="PostgreSQL bağlantısı başarılı" />
             <StatusLine ok={status.database.migrationsApplied} label="Migration tabloları mevcut" />
             <StatusLine ok={status.data.superAdminExists} label="Super admin kullanıcısı mevcut" />

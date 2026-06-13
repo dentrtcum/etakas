@@ -35,7 +35,6 @@ DATABASE_URL=
 AUTH_SECRET=
 APP_URL=
 ENCRYPTION_KEY=
-CRON_SECRET=
 TRADING_MODE=demo
 LEGAL_APPROVAL_CONFIRMED=false
 INITIAL_ADMIN_EMAIL=
@@ -81,4 +80,5 @@ INITIAL_ADMIN_PASSWORD=
 - Teslim beyanı: `POST /api/orders/:orderId/handover`
 - İptal: `POST /api/orders/:orderId/cancel`
 - Tamamlama: `POST /api/orders/:orderId/complete`
-- Cron otomatik tamamlama: `POST /api/cron/complete-orders` ve `Authorization: Bearer $CRON_SECRET`
+- Satıcı teslim beyanı sonrası alıcı teslimi onaylar; otomatik tamamlama yoktur.
+- İtiraz ve iade işlemleri admin panelindeki sipariş bölümü üzerinden yürütülür.

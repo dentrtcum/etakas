@@ -46,4 +46,6 @@ Domain rules live under `src/modules/*` and data access under `src/lib/db`. Reac
 - Balance holds and inventory reservations are created atomically with the order.
 - Cancellation releases balance and stock reservations.
 - Completion consumes the hold, transfers reserved stock and posts balanced ledger entries.
-- Vercel Cron calls `/api/cron/complete-orders` with `CRON_SECRET` to complete eligible buyer-confirmation-pending orders.
+- Seller delivery declaration moves the order to buyer confirmation; buyer confirmation completes the order.
+- There is no timed automatic completion or Vercel Cron dependency.
+- Disputes, cancellation, forced completion and completed-order refunds are admin-controlled.

@@ -10,7 +10,6 @@ export type SetupStatus = {
     authSecret: boolean;
     appUrl: boolean;
     encryptionKey: boolean;
-    cronSecret: boolean;
     tradingMode: string;
     legalApprovalConfirmed: boolean;
   };
@@ -31,7 +30,6 @@ export async function getSetupStatus(): Promise<SetupStatus> {
       authSecret: Boolean(serverEnv.AUTH_SECRET),
       appUrl: Boolean(serverEnv.APP_URL),
       encryptionKey: Boolean(serverEnv.ENCRYPTION_KEY),
-      cronSecret: Boolean(serverEnv.CRON_SECRET),
       tradingMode: serverEnv.TRADING_MODE,
       legalApprovalConfirmed: serverEnv.LEGAL_APPROVAL_CONFIRMED
     },
