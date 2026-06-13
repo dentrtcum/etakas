@@ -1,4 +1,12 @@
-import { CheckCircle2, FileQuestion, LockKeyhole, PackageSearch, RotateCcw, ShieldCheck, XCircle } from "lucide-react";
+import {
+  Building2,
+  CheckCircle2,
+  FileQuestion,
+  LockKeyhole,
+  PackageSearch,
+  RotateCcw,
+  ShieldCheck
+} from "lucide-react";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/authorization";
 import { getCurrentAppUser } from "@/lib/auth/current-user";
@@ -13,52 +21,59 @@ import { adminOrderAction } from "@/app/admin36100/order-actions";
 
 const typeLabels = {
   PHARMACY: "Eczane",
-  VETERINARY_CLINIC: "Veteriner kliniği",
-  VETERINARY_POLYCLINIC: "Veteriner polikliniği",
+  VETERINARY_CLINIC: "Veteriner klinigi",
+  VETERINARY_POLYCLINIC: "Veteriner poliklinigi",
   ANIMAL_HOSPITAL: "Hayvan hastanesi"
 } as const;
 
 const decisionLabels = {
-  START_REVIEW: "İncelemeye al",
+  START_REVIEW: "Incelemeye al",
   REQUEST_ADDITIONAL_DOCUMENT: "Ek belge iste",
   APPROVE: "Onayla",
   REJECT: "Reddet",
-  SUSPEND: "Askıya al",
+  SUSPEND: "Askiya al",
   REOPEN_REVIEW: "Yeniden incele",
   CLOSE: "Kapat"
 } as const;
 
 const listingDecisionLabels = {
   APPROVE: "Onayla",
-  REQUEST_CHANGES: "Değişiklik iste",
+  REQUEST_CHANGES: "Degisiklik iste",
   REJECT: "Reddet",
-  REMOVE: "Kaldır"
+  REMOVE: "Kaldir"
 } as const;
 
 const orderDecisionLabels = {
   FREEZE: "Dondur",
-  CANCEL: "İptal/iade et",
+  CANCEL: "Iptal/iade et",
   FORCE_COMPLETE: "Zorla tamamla",
-  REFUND_COMPLETED: "Tamamlanan işlemi iade et"
+  REFUND_COMPLETED: "Tamamlanan islemi iade et"
 } as const;
 
-const statusColors = {
-  SUBMITTED: "bg-sky-50 text-sky-800",
-  UNDER_REVIEW: "bg-amber-50 text-amber-800",
-  ADDITIONAL_DOCUMENT_REQUIRED: "bg-orange-50 text-orange-800",
-  APPROVED: "bg-emerald-50 text-emerald-800",
-  REJECTED: "bg-rose-50 text-rose-800",
-  SUSPENDED: "bg-slate-100 text-slate-800",
-  DRAFT: "bg-slate-100 text-slate-800",
-  CLOSED: "bg-slate-100 text-slate-800"
-} as const;
+function StatusBadge({ status }: { status: string }) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
+      <LockKeyhole aria-hidden="true" size={14} />
+      {status}
+    </span>
+  );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="rounded-md border border-dashed border-[var(--line)] bg-slate-50 p-6 text-center">
+      <FileQuestion className="mx-auto text-[var(--muted)]" size={28} />
+      <p className="mt-3 text-sm font-medium text-[var(--muted)]">{text}</p>
+    </div>
+  );
+}
 
 export default async function AdminHomePage() {
   const actor = await getCurrentAppUser();
   const authorization = requireAdmin(actor);
 
   if (!authorization.allowed) {
-    redirect("/giris");
+    redirect("/giris?next=/admin36100");
   }
 
   const reviewRows = await listOrganizationReviewQueue();
@@ -68,267 +83,214 @@ export default async function AdminHomePage() {
   return (
     <main className="min-h-screen bg-[var(--background)]">
       <section className="mx-auto max-w-7xl px-6 py-10 lg:px-8">
-        <div className="mb-8 flex flex-col gap-3 border-b border-[var(--line)] pb-6">
+        <div className="mb-8 border-b border-[var(--line)] pb-6">
           <div className="flex items-center gap-3 text-[var(--primary)]">
             <ShieldCheck aria-hidden="true" size={22} />
-            <p className="text-sm font-semibold uppercase tracking-wide">Admin paneli</p>
+            <p className="text-sm font-semibold uppercase tracking-wide">Admin</p>
           </div>
-          <h1 className="text-3xl font-bold">Doğrulama incelemeleri</h1>
+          <h1 className="mt-2 text-3xl font-bold">Tek sayfa yonetim merkezi</h1>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--muted)]">
+            Isletme dogrulama, ilan inceleme, siparis, itiraz ve iade kararlarini bu sayfadaki acilir
+            bolumlerden yonetin.
+          </p>
         </div>
 
-        {reviewRows.length === 0 ? (
-          <section className="rounded-md border border-[var(--line)] bg-white p-8 text-center">
-            <FileQuestion className="mx-auto text-[var(--muted)]" size={30} />
-            <h2 className="mt-3 text-lg font-semibold">İncelenecek başvuru yok</h2>
-          </section>
-        ) : (
-          <div className="overflow-x-auto rounded-md border border-[var(--line)] bg-white">
-            <table className="w-full min-w-[980px] border-collapse text-left text-sm">
-              <thead className="bg-slate-50 text-[var(--muted)]">
-                <tr>
-                  <th className="px-4 py-3 font-semibold">İşletme</th>
-                  <th className="px-4 py-3 font-semibold">Tür</th>
-                  <th className="px-4 py-3 font-semibold">Konum</th>
-                  <th className="px-4 py-3 font-semibold">Durum</th>
-                  <th className="px-4 py-3 font-semibold">Karar</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reviewRows.map((row) => {
-                  const decisions = getAllowedOrganizationReviewDecisions(row.status);
-
-                  return (
-                    <tr className="border-t border-[var(--line)] align-top" key={row.id}>
-                      <td className="px-4 py-4">
-                        <div className="font-medium">{row.legalName}</div>
-                        <div className="mt-1 text-xs text-[var(--muted)]">{row.publicAlias}</div>
-                      </td>
-                      <td className="px-4 py-4">{typeLabels[row.type]}</td>
-                      <td className="px-4 py-4">
-                        {row.province} / {row.district}
-                      </td>
-                      <td className="px-4 py-4">
-                        <span
-                          className={`inline-flex items-center gap-2 rounded-md px-2 py-1 text-xs font-semibold ${statusColors[row.status]}`}
-                        >
-                          <LockKeyhole aria-hidden="true" size={14} />
-                          {row.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4">
-                        {decisions.length === 0 ? (
-                          <span className="text-sm text-[var(--muted)]">Karar kapalı</span>
-                        ) : (
-                          <form action={reviewOrganizationAction} className="grid max-w-sm gap-2">
-                            <input name="organizationId" type="hidden" value={row.id} />
-                            <select
-                              className="h-10 rounded-md border border-[var(--line)] bg-white px-3"
-                              name="decision"
-                              required
-                            >
-                              {decisions.map((decision) => (
-                                <option key={decision} value={decision}>
-                                  {decisionLabels[decision]}
-                                </option>
-                              ))}
-                            </select>
-                            <textarea
-                              className="min-h-20 rounded-md border border-[var(--line)] p-3"
-                              minLength={10}
-                              name="reason"
-                              placeholder="Gerekçe"
-                              required
-                            />
-                            <button
-                              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--primary)] px-4 font-semibold text-white hover:bg-[var(--primary-strong)]"
-                              type="submit"
-                            >
-                              <CheckCircle2 aria-hidden="true" size={16} />
-                              Kaydet
-                            </button>
-                          </form>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-md border border-[var(--line)] bg-white p-4">
+            <div className="text-sm text-[var(--muted)]">Isletme incelemesi</div>
+            <div className="mt-2 text-3xl font-bold">{reviewRows.length}</div>
           </div>
-        )}
-
-        <div className="mt-5 flex items-center gap-2 text-sm text-[var(--muted)]">
-          <XCircle aria-hidden="true" size={16} />
-          Her karar audit log üretir; onaylanan işletme için ledger hesabı oluşturulur.
+          <div className="rounded-md border border-[var(--line)] bg-white p-4">
+            <div className="text-sm text-[var(--muted)]">Ilan incelemesi</div>
+            <div className="mt-2 text-3xl font-bold">{listingRows.length}</div>
+          </div>
+          <div className="rounded-md border border-[var(--line)] bg-white p-4">
+            <div className="text-sm text-[var(--muted)]">Siparis / itiraz</div>
+            <div className="mt-2 text-3xl font-bold">{orderRows.length}</div>
+          </div>
         </div>
 
-        <div className="mt-12 mb-8 flex flex-col gap-3 border-b border-[var(--line)] pb-6">
-          <div className="flex items-center gap-3 text-[var(--primary)]">
-            <PackageSearch aria-hidden="true" size={22} />
-            <p className="text-sm font-semibold uppercase tracking-wide">İlan inceleme</p>
-          </div>
-          <h2 className="text-2xl font-bold">Onay bekleyen ilanlar</h2>
-        </div>
+        <div className="mt-8 grid gap-4">
+          <details className="rounded-md border border-[var(--line)] bg-white p-5" open>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+              <span className="inline-flex items-center gap-3 font-semibold">
+                <Building2 aria-hidden="true" size={20} />
+                Isletme basvurulari
+              </span>
+              <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold">{reviewRows.length}</span>
+            </summary>
 
-        {listingRows.length === 0 ? (
-          <section className="rounded-md border border-[var(--line)] bg-white p-8 text-center">
-            <FileQuestion className="mx-auto text-[var(--muted)]" size={30} />
-            <h3 className="mt-3 text-lg font-semibold">İncelenecek ilan yok</h3>
-          </section>
-        ) : (
-          <div className="overflow-x-auto rounded-md border border-[var(--line)] bg-white">
-            <table className="w-full min-w-[1080px] border-collapse text-left text-sm">
-              <thead className="bg-slate-50 text-[var(--muted)]">
-                <tr>
-                  <th className="px-4 py-3 font-semibold">Ürün</th>
-                  <th className="px-4 py-3 font-semibold">Satıcı</th>
-                  <th className="px-4 py-3 font-semibold">Miktar</th>
-                  <th className="px-4 py-3 font-semibold">Referans değer</th>
-                  <th className="px-4 py-3 font-semibold">Durum</th>
-                  <th className="px-4 py-3 font-semibold">Karar</th>
-                </tr>
-              </thead>
-              <tbody>
-                {listingRows.map((row) => {
-                  const decisions = getAllowedListingReviewDecisions(row.status);
+            <div className="mt-5 grid gap-4">
+              {reviewRows.length === 0 ? <EmptyState text="Incelenecek basvuru yok." /> : null}
+              {reviewRows.map((row) => {
+                const decisions = getAllowedOrganizationReviewDecisions(row.status);
 
-                  return (
-                    <tr className="border-t border-[var(--line)] align-top" key={row.id}>
-                      <td className="px-4 py-4">
-                        <div className="font-medium">{row.productName}</div>
-                        <div className="mt-1 text-xs text-[var(--muted)]">
-                          {row.productType} / GTIN {row.productGtin} / SKT {row.minExpiryDate}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div>{row.sellerPublicAlias}</div>
-                        <div className="mt-1 text-xs text-[var(--muted)]">
-                          {row.sellerProvince} / {row.sellerDistrict}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">{row.quantityAvailable}</td>
-                      <td className="px-4 py-4">{row.unitReferenceValueKurus} kr</td>
-                      <td className="px-4 py-4">
-                        <span className="inline-flex items-center gap-2 rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
-                          <LockKeyhole aria-hidden="true" size={14} />
-                          {row.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4">
-                        <form action={reviewListingAction} className="grid max-w-sm gap-2">
-                          <input name="listingId" type="hidden" value={row.id} />
-                          <select
-                            className="h-10 rounded-md border border-[var(--line)] bg-white px-3"
-                            name="decision"
-                            required
-                          >
-                            {decisions.map((decision) => (
-                              <option key={decision} value={decision}>
-                                {listingDecisionLabels[decision]}
-                              </option>
-                            ))}
-                          </select>
-                          <textarea
-                            className="min-h-20 rounded-md border border-[var(--line)] p-3"
-                            minLength={10}
-                            name="reason"
-                            placeholder="Gerekçe"
-                            required
-                          />
-                          <button
-                            className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--primary)] px-4 font-semibold text-white hover:bg-[var(--primary-strong)]"
-                            type="submit"
-                          >
-                            <CheckCircle2 aria-hidden="true" size={16} />
-                            Kaydet
-                          </button>
-                        </form>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                return (
+                  <article className="rounded-md border border-[var(--line)] p-4" key={row.id}>
+                    <div className="flex flex-col justify-between gap-3 md:flex-row">
+                      <div>
+                        <h2 className="font-semibold">{row.legalName}</h2>
+                        <p className="mt-1 text-sm text-[var(--muted)]">
+                          {typeLabels[row.type]} / {row.province} / {row.district}
+                        </p>
+                      </div>
+                      <StatusBadge status={row.status} />
+                    </div>
 
-        <div className="mt-12 mb-8 flex flex-col gap-3 border-b border-[var(--line)] pb-6">
-          <div className="flex items-center gap-3 text-[var(--primary)]">
-            <RotateCcw aria-hidden="true" size={22} />
-            <p className="text-sm font-semibold uppercase tracking-wide">Sipariş / itiraz / iade</p>
-          </div>
-          <h2 className="text-2xl font-bold">Admin kontrollü sipariş işlemleri</h2>
-        </div>
+                    <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
+                      <div>
+                        <div className="text-[var(--muted)]">Yetkili</div>
+                        <div>{row.authorizedPersonName ?? "Eksik"} / {row.authorizedPersonTitle ?? "Eksik"}</div>
+                      </div>
+                      <div>
+                        <div className="text-[var(--muted)]">Kimlik / ruhsat</div>
+                        <div>{row.ownerIdentityNumber ?? "Eksik"} / {row.licenseNumber ?? "Eksik"}</div>
+                      </div>
+                      <div>
+                        <div className="text-[var(--muted)]">Iletisim</div>
+                        <div>{row.contactEmail ?? "Eksik"} / {row.phone ?? "Eksik"}</div>
+                      </div>
+                      <div>
+                        <div className="text-[var(--muted)]">Vergi / oda</div>
+                        <div>{row.taxNumber ?? "Eksik"} / {row.professionalChamber ?? "Eksik"}</div>
+                      </div>
+                      <div className="md:col-span-2">
+                        <div className="text-[var(--muted)]">Adres</div>
+                        <div>{row.address ?? "Eksik"}</div>
+                      </div>
+                      <div className="md:col-span-3">
+                        <div className="text-[var(--muted)]">Belgeler</div>
+                        <div>{row.documents.length} belge yuklendi: {row.documents.map((doc) => doc.kind).join(", ") || "Yok"}</div>
+                      </div>
+                    </div>
 
-        {orderRows.length === 0 ? (
-          <section className="rounded-md border border-[var(--line)] bg-white p-8 text-center">
-            <FileQuestion className="mx-auto text-[var(--muted)]" size={30} />
-            <h3 className="mt-3 text-lg font-semibold">İncelenecek sipariş yok</h3>
-          </section>
-        ) : (
-          <div className="overflow-x-auto rounded-md border border-[var(--line)] bg-white">
-            <table className="w-full min-w-[1120px] border-collapse text-left text-sm">
-              <thead className="bg-slate-50 text-[var(--muted)]">
-                <tr>
-                  <th className="px-4 py-3 font-semibold">Sipariş</th>
-                  <th className="px-4 py-3 font-semibold">Taraflar</th>
-                  <th className="px-4 py-3 font-semibold">Miktar</th>
-                  <th className="px-4 py-3 font-semibold">Takas değeri</th>
-                  <th className="px-4 py-3 font-semibold">Durum</th>
-                  <th className="px-4 py-3 font-semibold">Admin kararı</th>
-                </tr>
-              </thead>
-              <tbody>
-                {orderRows.map((row) => (
-                  <tr className="border-t border-[var(--line)] align-top" key={row.id}>
-                    <td className="px-4 py-4">
-                      <div className="font-medium">{row.id}</div>
-                      <div className="mt-1 text-xs text-[var(--muted)]">İlan: {row.listingId}</div>
-                    </td>
-                    <td className="px-4 py-4 text-xs">
-                      <div>Alıcı: {row.buyerOrganizationId}</div>
-                      <div className="mt-1">Satıcı: {row.sellerOrganizationId}</div>
-                    </td>
-                    <td className="px-4 py-4">{row.quantity}</td>
-                    <td className="px-4 py-4">{row.totalReferenceValueKurus} kr</td>
-                    <td className="px-4 py-4">
-                      <span className="inline-flex items-center gap-2 rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
-                        <LockKeyhole aria-hidden="true" size={14} />
-                        {row.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4">
-                      <form action={adminOrderAction} className="grid max-w-sm gap-2">
-                        <input name="orderId" type="hidden" value={row.id} />
-                        <select className="h-10 rounded-md border border-[var(--line)] bg-white px-3" name="decision" required>
-                          {Object.entries(orderDecisionLabels).map(([decision, label]) => (
+                    {decisions.length > 0 ? (
+                      <form action={reviewOrganizationAction} className="mt-4 grid gap-3 md:grid-cols-[220px_1fr_150px]">
+                        <input name="organizationId" type="hidden" value={row.id} />
+                        <select className="h-11 rounded-md border border-[var(--line)] bg-white px-3" name="decision" required>
+                          {decisions.map((decision) => (
                             <option key={decision} value={decision}>
-                              {label}
+                              {decisionLabels[decision]}
                             </option>
                           ))}
                         </select>
                         <textarea
-                          className="min-h-20 rounded-md border border-[var(--line)] p-3"
+                          className="min-h-11 rounded-md border border-[var(--line)] p-3"
                           minLength={10}
                           name="reason"
-                          placeholder="Gerekçe"
+                          placeholder="Gerekce"
                           required
                         />
-                        <button
-                          className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--primary)] px-4 font-semibold text-white hover:bg-[var(--primary-strong)]"
-                          type="submit"
-                        >
+                        <button className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-[var(--primary)] px-4 font-semibold text-white" type="submit">
                           <CheckCircle2 aria-hidden="true" size={16} />
                           Kaydet
                         </button>
                       </form>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+          </details>
+
+          <details className="rounded-md border border-[var(--line)] bg-white p-5">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+              <span className="inline-flex items-center gap-3 font-semibold">
+                <PackageSearch aria-hidden="true" size={20} />
+                Ilan incelemeleri
+              </span>
+              <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold">{listingRows.length}</span>
+            </summary>
+
+            <div className="mt-5 grid gap-4">
+              {listingRows.length === 0 ? <EmptyState text="Incelenecek ilan yok." /> : null}
+              {listingRows.map((row) => {
+                const decisions = getAllowedListingReviewDecisions(row.status);
+
+                return (
+                  <article className="rounded-md border border-[var(--line)] p-4" key={row.id}>
+                    <div className="flex flex-col justify-between gap-3 md:flex-row">
+                      <div>
+                        <h2 className="font-semibold">{row.productName}</h2>
+                        <p className="mt-1 text-sm text-[var(--muted)]">
+                          {row.productType} / GTIN {row.productGtin} / SKT {row.minExpiryDate}
+                        </p>
+                      </div>
+                      <StatusBadge status={row.status} />
+                    </div>
+                    <div className="mt-4 grid gap-3 text-sm md:grid-cols-4">
+                      <div>Satıcı: {row.sellerPublicAlias}</div>
+                      <div>Miktar: {row.quantityAvailable}</div>
+                      <div>Referans: {row.unitReferenceValueKurus} kr</div>
+                      <div>Gorsel: {row.imageCount} / Belge: {row.documents.length}</div>
+                    </div>
+                    <form action={reviewListingAction} className="mt-4 grid gap-3 md:grid-cols-[220px_1fr_150px]">
+                      <input name="listingId" type="hidden" value={row.id} />
+                      <select className="h-11 rounded-md border border-[var(--line)] bg-white px-3" name="decision" required>
+                        {decisions.map((decision) => (
+                          <option key={decision} value={decision}>
+                            {listingDecisionLabels[decision]}
+                          </option>
+                        ))}
+                      </select>
+                      <textarea className="min-h-11 rounded-md border border-[var(--line)] p-3" minLength={10} name="reason" placeholder="Gerekce" required />
+                      <button className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-[var(--primary)] px-4 font-semibold text-white" type="submit">
+                        <CheckCircle2 aria-hidden="true" size={16} />
+                        Kaydet
+                      </button>
+                    </form>
+                  </article>
+                );
+              })}
+            </div>
+          </details>
+
+          <details className="rounded-md border border-[var(--line)] bg-white p-5">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+              <span className="inline-flex items-center gap-3 font-semibold">
+                <RotateCcw aria-hidden="true" size={20} />
+                Siparis, itiraz ve iade
+              </span>
+              <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold">{orderRows.length}</span>
+            </summary>
+
+            <div className="mt-5 grid gap-4">
+              {orderRows.length === 0 ? <EmptyState text="Incelenecek siparis veya itiraz yok." /> : null}
+              {orderRows.map((row) => (
+                <article className="rounded-md border border-[var(--line)] p-4" key={row.id}>
+                  <div className="flex flex-col justify-between gap-3 md:flex-row">
+                    <div>
+                      <h2 className="font-semibold">{row.id}</h2>
+                      <p className="mt-1 text-sm text-[var(--muted)]">Ilan: {row.listingId}</p>
+                    </div>
+                    <StatusBadge status={row.status} />
+                  </div>
+                  <div className="mt-4 grid gap-3 text-sm md:grid-cols-4">
+                    <div>Alici: {row.buyerOrganizationId}</div>
+                    <div>Satici: {row.sellerOrganizationId}</div>
+                    <div>Miktar: {row.quantity}</div>
+                    <div>Takas: {row.totalReferenceValueKurus} kr</div>
+                  </div>
+                  <form action={adminOrderAction} className="mt-4 grid gap-3 md:grid-cols-[260px_1fr_150px]">
+                    <input name="orderId" type="hidden" value={row.id} />
+                    <select className="h-11 rounded-md border border-[var(--line)] bg-white px-3" name="decision" required>
+                      {Object.entries(orderDecisionLabels).map(([decision, label]) => (
+                        <option key={decision} value={decision}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                    <textarea className="min-h-11 rounded-md border border-[var(--line)] p-3" minLength={10} name="reason" placeholder="Gerekce" required />
+                    <button className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-[var(--primary)] px-4 font-semibold text-white" type="submit">
+                      <CheckCircle2 aria-hidden="true" size={16} />
+                      Kaydet
+                    </button>
+                  </form>
+                </article>
+              ))}
+            </div>
+          </details>
+        </div>
       </section>
     </main>
   );

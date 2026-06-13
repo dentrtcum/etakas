@@ -1,6 +1,6 @@
 {
-  "id": "658b11d2-1ee9-4879-929c-48e3d85dd4cd",
-  "prevId": "946f07b7-bdbb-4209-9db9-694e088f97c6",
+  "id": "075e3d29-f95b-4a1a-a448-323f9d0c8e19",
+  "prevId": "658b11d2-1ee9-4879-929c-48e3d85dd4cd",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2392,6 +2392,36 @@
         },
         "license_number_encrypted": {
           "name": "license_number_encrypted",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "authorized_person_name_encrypted": {
+          "name": "authorized_person_name_encrypted",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "authorized_person_title_encrypted": {
+          "name": "authorized_person_title_encrypted",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "owner_identity_number_encrypted": {
+          "name": "owner_identity_number_encrypted",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "professional_chamber_encrypted": {
+          "name": "professional_chamber_encrypted",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "contact_email_encrypted": {
+          "name": "contact_email_encrypted",
           "type": "text",
           "primaryKey": false,
           "notNull": false

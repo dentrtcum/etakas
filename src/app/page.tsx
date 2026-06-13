@@ -48,9 +48,6 @@ export default function HomePage() {
               <Link className="rounded-md border border-[var(--line)] px-5 py-3 text-sm font-semibold" href="/isletme-kaydi">
                 İşletme kaydı
               </Link>
-              <Link className="rounded-md border border-[var(--line)] px-5 py-3 text-sm font-semibold" href="/panel">
-                Panel
-              </Link>
             </div>
           </div>
           <div className="grid gap-3 self-center">

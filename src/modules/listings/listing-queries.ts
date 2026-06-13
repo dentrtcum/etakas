@@ -1,13 +1,13 @@
 import { desc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
-import { listings, organizations, productBatches, productCatalog } from "@/lib/db/schema";
+import { listingDocuments, listingImages, listings, organizations, productBatches, productCatalog } from "@/lib/db/schema";
 import type { ListingReviewStatus } from "@/modules/listings/listing-review";
 
 const listingQueueStatuses = ["PENDING_REVIEW", "CHANGES_REQUESTED"] as const satisfies ListingReviewStatus[];
 
 export async function listListingReviewQueue() {
   const db = getDb();
-  return db
+  const rows = await db
     .select({
       id: listings.id,
       status: listings.status,
@@ -29,4 +29,30 @@ export async function listListingReviewQueue() {
     .where(inArray(listings.status, listingQueueStatuses))
     .orderBy(desc(listings.updatedAt), desc(listings.createdAt))
     .limit(50);
+
+  const listingIds = rows.map((row) => row.id);
+  const images =
+    listingIds.length > 0
+      ? await db
+          .select({ listingId: listingImages.listingId, scanStatus: listingImages.scanStatus })
+          .from(listingImages)
+          .where(inArray(listingImages.listingId, listingIds))
+      : [];
+  const documents =
+    listingIds.length > 0
+      ? await db
+          .select({
+            listingId: listingDocuments.listingId,
+            kind: listingDocuments.kind,
+            scanStatus: listingDocuments.scanStatus
+          })
+          .from(listingDocuments)
+          .where(inArray(listingDocuments.listingId, listingIds))
+      : [];
+
+  return rows.map((row) => ({
+    ...row,
+    imageCount: images.filter((image) => image.listingId === row.id).length,
+    documents: documents.filter((document) => document.listingId === row.id)
+  }));
 }

@@ -5,6 +5,8 @@ import type { AppSessionUser } from "@/lib/auth/roles";
 import { getDb } from "@/lib/db/client";
 import {
   auditLogs,
+  listingDocuments,
+  listingImages,
   listings,
   organizations,
   productBatches,
@@ -12,6 +14,7 @@ import {
 } from "@/lib/db/schema";
 import { encryptField } from "@/lib/encryption/field-crypto";
 import { serverEnv } from "@/lib/env";
+import { uploadPrivateFile, type UploadableFile } from "@/lib/storage/blob-storage";
 import type { ListingSubmissionInput } from "@/modules/listings/listing-input";
 
 export class ListingSubmissionError extends Error {
@@ -38,7 +41,11 @@ export function assertListingExpiry(expiryDate: string, now = new Date()) {
   }
 }
 
-export async function submitListingForReview(actor: AppSessionUser, input: ListingSubmissionInput) {
+export async function submitListingForReview(
+  actor: AppSessionUser,
+  input: ListingSubmissionInput,
+  evidence: { kind: "image" | "invoice" | "package" | "other"; file: UploadableFile }[] = []
+) {
   assertSubmissionConfig();
   assertListingExpiry(input.expiryDate);
 
@@ -58,6 +65,17 @@ export async function submitListingForReview(actor: AppSessionUser, input: Listi
   if (!encryptionKey) {
     throw new ListingSubmissionError("ENCRYPTION_KEY is required for listing submission.");
   }
+
+  const uploadedEvidence = await Promise.all(
+    evidence.map(async (item) => ({
+      kind: item.kind,
+      ...(await uploadPrivateFile({
+        file: item.file,
+        folder: "listing-evidence",
+        kind: item.kind
+      }))
+    }))
+  );
 
   return db.transaction(async (tx) => {
     const [organization] = await tx
@@ -137,6 +155,30 @@ export async function submitListingForReview(actor: AppSessionUser, input: Listi
       throw new ListingSubmissionError("Listing could not be created.");
     }
 
+    const imageEvidence = uploadedEvidence.filter((item) => item.kind === "image" || item.kind === "package");
+    const documentEvidence = uploadedEvidence.filter((item) => item.kind !== "image" && item.kind !== "package");
+
+    if (imageEvidence.length > 0) {
+      await tx.insert(listingImages).values(
+        imageEvidence.map((item) => ({
+          listingId: listing.id,
+          storageKey: item.storageKey,
+          scanStatus: "UPLOADED" as const
+        }))
+      );
+    }
+
+    if (documentEvidence.length > 0) {
+      await tx.insert(listingDocuments).values(
+        documentEvidence.map((item) => ({
+          listingId: listing.id,
+          kind: item.kind,
+          storageKey: item.storageKey,
+          scanStatus: "UPLOADED" as const
+        }))
+      );
+    }
+
     await tx.insert(auditLogs).values({
       actorUserId: actor.id,
       organizationId: input.organizationId,
@@ -148,7 +190,8 @@ export async function submitListingForReview(actor: AppSessionUser, input: Listi
         productId: input.productId,
         quantity: input.quantity,
         unitReferenceValueKurus: input.unitReferenceValueKurus,
-        expiryDate: input.expiryDate
+        expiryDate: input.expiryDate,
+        evidenceCount: uploadedEvidence.length
       },
       correlationId: randomUUID(),
       reason: "Organization submitted inventory listing for admin review."

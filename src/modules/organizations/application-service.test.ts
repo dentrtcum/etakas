@@ -12,15 +12,17 @@ const application: OrganizationApplication = {
   type: "PHARMACY",
   legalName: "Sentetik Eczane Ltd.",
   taxNumber: "1234567890",
-  authorizedPersonName: "Ayşe Yılmaz",
-  authorizedPersonTitle: "Eczacı",
+  authorizedPersonName: "Ayse Yilmaz",
+  authorizedPersonTitle: "Eczaci",
+  ownerIdentityNumber: "12345678901",
   email: "basvuru@example.invalid",
+  password: "very-secure-password",
   phone: "+905551112233",
-  province: "İstanbul",
-  district: "Kadıköy",
+  province: "Istanbul",
+  district: "Kadikoy",
   address: "Sentetik Mahallesi Test Caddesi No: 1",
   licenseNumber: "SYN-12345",
-  professionalChamber: "Sentetik Eczacı Odası",
+  professionalChamber: "Sentetik Eczaci Odasi",
   invoiceTitle: "Sentetik Eczane Ltd.",
   kvkkAccepted: true,
   termsAccepted: true
@@ -33,6 +35,7 @@ describe("organization application persistence mapping", () => {
     expect(insert.status).toBe("SUBMITTED");
     expect(insert.legalNameEncrypted).not.toContain(application.legalName);
     expect(insert.taxNumberEncrypted).not.toContain(application.taxNumber);
+    expect(insert.ownerIdentityNumberEncrypted).not.toContain(application.ownerIdentityNumber);
     expect(decryptField(insert.legalNameEncrypted, secret)).toBe(application.legalName);
   });
 

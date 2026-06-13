@@ -2,13 +2,18 @@ import { randomUUID } from "node:crypto";
 import { getDb } from "@/lib/db/client";
 import {
   auditLogs,
+  organizationDocuments,
+  organizationMembers,
   organizationAddresses,
   organizations,
+  users,
   type organizationStatus,
   type organizationType
 } from "@/lib/db/schema";
+import { hashPassword } from "@/lib/auth/password";
 import { encryptField } from "@/lib/encryption/field-crypto";
 import { serverEnv } from "@/lib/env";
+import { uploadPrivateFile, type UploadableFile } from "@/lib/storage/blob-storage";
 import {
   createPublicAlias,
   toSafeApplicationAuditSummary,
@@ -41,6 +46,11 @@ export function buildOrganizationInsert(application: OrganizationApplication, en
     publicAlias: createPublicAlias(application.type),
     taxNumberEncrypted: encryptField(application.taxNumber, encryptionSecret),
     licenseNumberEncrypted: encryptField(application.licenseNumber, encryptionSecret),
+    authorizedPersonNameEncrypted: encryptField(application.authorizedPersonName, encryptionSecret),
+    authorizedPersonTitleEncrypted: encryptField(application.authorizedPersonTitle, encryptionSecret),
+    ownerIdentityNumberEncrypted: encryptField(application.ownerIdentityNumber, encryptionSecret),
+    professionalChamberEncrypted: encryptField(application.professionalChamber, encryptionSecret),
+    contactEmailEncrypted: encryptField(application.email.toLowerCase(), encryptionSecret),
     province: application.province,
     district: application.district
   };
@@ -58,13 +68,27 @@ export function buildOrganizationAddressInsert(
   };
 }
 
-export async function submitOrganizationApplication(application: OrganizationApplication) {
+export async function submitOrganizationApplication(
+  application: OrganizationApplication,
+  documents: { kind: string; file: UploadableFile }[] = []
+) {
   if (!serverEnv.DATABASE_URL) {
     throw new PersistenceConfigurationError();
   }
 
   const encryptionSecret = getEncryptionSecret();
   const db = getDb();
+
+  const uploadedDocuments = await Promise.all(
+    documents.map(async (document) => ({
+      kind: document.kind,
+      ...(await uploadPrivateFile({
+        file: document.file,
+        folder: "organization-applications",
+        kind: document.kind
+      }))
+    }))
+  );
 
   return db.transaction(async (tx) => {
     const [organization] = await tx
@@ -80,6 +104,49 @@ export async function submitOrganizationApplication(application: OrganizationApp
       .insert(organizationAddresses)
       .values(buildOrganizationAddressInsert(organization.id, application, encryptionSecret));
 
+    const [user] = await tx
+      .insert(users)
+      .values({
+        email: application.email.toLowerCase(),
+        name: application.authorizedPersonName,
+        emailVerified: false,
+        passwordHash: hashPassword(application.password),
+        totpEnabled: false
+      })
+      .onConflictDoUpdate({
+        target: users.email,
+        set: {
+          name: application.authorizedPersonName,
+          passwordHash: hashPassword(application.password),
+          updatedAt: new Date()
+        }
+      })
+      .returning({ id: users.id });
+
+    if (!user) {
+      throw new Error("Organization application user could not be created.");
+    }
+
+    await tx.insert(organizationMembers).values({
+      organizationId: organization.id,
+      userId: user.id,
+      role: "ORGANIZATION_OWNER"
+    });
+
+    if (uploadedDocuments.length > 0) {
+      await tx.insert(organizationDocuments).values(
+        uploadedDocuments.map((document) => ({
+          organizationId: organization.id,
+          kind: document.kind,
+          storageKey: document.storageKey,
+          originalNameHash: document.originalNameHash,
+          mimeType: document.mimeType,
+          byteSize: document.byteSize,
+          scanStatus: "UPLOADED" as const
+        }))
+      );
+    }
+
     await tx.insert(auditLogs).values({
       actorUserId: null,
       organizationId: organization.id,
@@ -89,7 +156,7 @@ export async function submitOrganizationApplication(application: OrganizationApp
       safeBefore: null,
       safeAfter: toSafeApplicationAuditSummary(application),
       correlationId: randomUUID(),
-      reason: "Public organization application submitted."
+      reason: `Public organization application submitted with ${uploadedDocuments.length} document(s).`
     });
 
     return organization;

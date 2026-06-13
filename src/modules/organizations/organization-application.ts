@@ -6,7 +6,9 @@ export const organizationApplicationSchema = z.object({
   taxNumber: z.string().trim().min(10).max(20),
   authorizedPersonName: z.string().trim().min(3).max(160),
   authorizedPersonTitle: z.string().trim().min(2).max(120),
+  ownerIdentityNumber: z.string().trim().regex(/^\d{11}$/),
   email: z.string().trim().email().max(320),
+  password: z.string().min(12).max(160),
   phone: z.string().trim().min(10).max(32),
   province: z.string().trim().min(2).max(80),
   district: z.string().trim().min(2).max(80),
@@ -44,6 +46,8 @@ export function toSafeApplicationAuditSummary(application: OrganizationApplicati
     district: application.district,
     emailDomain: application.email.split("@")[1] ?? "unknown",
     hasLicenseNumber: application.licenseNumber.length > 0,
+    hasOwnerIdentityNumber: application.ownerIdentityNumber.length === 11,
+    hasProfessionalChamber: application.professionalChamber.length > 0,
     kvkkAccepted: application.kvkkAccepted,
     termsAccepted: application.termsAccepted
   };
