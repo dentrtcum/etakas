@@ -11,6 +11,6 @@ describe("password hashing", () => {
   });
 
   it("rejects short passwords", () => {
-    expect(() => hashPassword("short")).toThrow("at least 12");
+    expect(() => hashPassword("short")).toThrow("at least 8");
   });
 });

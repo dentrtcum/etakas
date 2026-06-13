@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
-import { requireOrganizationAccess } from "@/lib/auth/authorization";
+import { and, eq, inArray } from "drizzle-orm";
 import type { AppSessionUser } from "@/lib/auth/roles";
 import { getDb } from "@/lib/db/client";
 import {
@@ -41,6 +40,14 @@ export function assertListingExpiry(expiryDate: string, now = new Date()) {
   }
 }
 
+function inferProductType(organizationType: string) {
+  return organizationType === "PHARMACY" ? "HUMAN" : "VETERINARY";
+}
+
+function buildSystemLotNumber(barcode: string, expiryDate: string) {
+  return `BARCODE-${barcode}-${expiryDate}-${randomUUID()}`;
+}
+
 export async function submitListingForReview(
   actor: AppSessionUser,
   input: ListingSubmissionInput,
@@ -48,16 +55,6 @@ export async function submitListingForReview(
 ) {
   assertSubmissionConfig();
   assertListingExpiry(input.expiryDate);
-
-  const authorization = requireOrganizationAccess(actor, input.organizationId, [
-    "ORGANIZATION_OWNER",
-    "ORGANIZATION_MANAGER",
-    "INVENTORY_MANAGER"
-  ]);
-
-  if (!authorization.allowed) {
-    throw new ListingSubmissionError(authorization.reason);
-  }
 
   const db = getDb();
   const encryptionKey = serverEnv.ENCRYPTION_KEY;
@@ -79,16 +76,20 @@ export async function submitListingForReview(
 
   return db.transaction(async (tx) => {
     const [organization] = await tx
-      .select({ id: organizations.id, status: organizations.status })
+      .select({ id: organizations.id, type: organizations.type, status: organizations.status })
       .from(organizations)
-      .where(and(eq(organizations.id, input.organizationId), eq(organizations.status, "APPROVED")))
+      .where(
+        actor.organizationIds.length > 0
+          ? and(inArray(organizations.id, actor.organizationIds), eq(organizations.status, "APPROVED"))
+          : eq(organizations.id, "00000000-0000-0000-0000-000000000000")
+      )
       .limit(1);
 
     if (!organization) {
       throw new ListingSubmissionError("Only approved organizations can submit listings.");
     }
 
-    const [product] = await tx
+    const [existingProduct] = await tx
       .select({
         id: productCatalog.id,
         type: productCatalog.type,
@@ -98,11 +99,37 @@ export async function submitListingForReview(
         controlCategory: productCatalog.controlCategory
       })
       .from(productCatalog)
-      .where(and(eq(productCatalog.id, input.productId), eq(productCatalog.isActive, true)))
+      .where(and(eq(productCatalog.gtin, input.barcode), eq(productCatalog.isActive, true)))
       .limit(1);
 
+    const product =
+      existingProduct ??
+      (
+        await tx
+          .insert(productCatalog)
+          .values({
+            name: `Barkod ${input.barcode}`,
+            type: inferProductType(organization.type),
+            gtin: input.barcode,
+            controlCategory: "STANDARD",
+            isActive: true
+          })
+          .onConflictDoUpdate({
+            target: productCatalog.gtin,
+            set: { isActive: true, updatedAt: new Date() }
+          })
+          .returning({
+            id: productCatalog.id,
+            type: productCatalog.type,
+            isActive: productCatalog.isActive,
+            requiresColdChain: productCatalog.requiresColdChain,
+            isBiological: productCatalog.isBiological,
+            controlCategory: productCatalog.controlCategory
+          })
+      )[0];
+
     if (!product) {
-      throw new ListingSubmissionError("Product catalog item is not active.");
+      throw new ListingSubmissionError("Product catalog item could not be prepared.");
     }
 
     if (
@@ -116,14 +143,12 @@ export async function submitListingForReview(
     const [batch] = await tx
       .insert(productBatches)
       .values({
-        organizationId: input.organizationId,
-        productId: input.productId,
-        lotNumberEncrypted: encryptField(input.lotNumber, encryptionKey),
+        organizationId: organization.id,
+        productId: product.id,
+        lotNumberEncrypted: encryptField(buildSystemLotNumber(input.barcode, input.expiryDate), encryptionKey),
         expiryDate: input.expiryDate,
-        invoiceDate: input.invoiceDate,
-        invoiceNumberEncrypted: input.invoiceNumber
-          ? encryptField(input.invoiceNumber, encryptionKey)
-          : null,
+        invoiceDate: null,
+        invoiceNumberEncrypted: null,
         unitReferenceValueKurus: input.unitReferenceValueKurus,
         totalQuantity: input.quantity,
         availableQuantity: input.quantity,
@@ -140,7 +165,7 @@ export async function submitListingForReview(
     const [listing] = await tx
       .insert(listings)
       .values({
-        sellerOrganizationId: input.organizationId,
+        sellerOrganizationId: organization.id,
         batchId: batch.id,
         status: "PENDING_REVIEW",
         unitReferenceValueKurus: input.unitReferenceValueKurus,
@@ -181,13 +206,14 @@ export async function submitListingForReview(
 
     await tx.insert(auditLogs).values({
       actorUserId: actor.id,
-      organizationId: input.organizationId,
+      organizationId: organization.id,
       action: "LISTING_SUBMITTED_FOR_REVIEW",
       targetType: "listing",
       targetId: listing.id,
       safeBefore: null,
       safeAfter: {
-        productId: input.productId,
+        productId: product.id,
+        barcode: input.barcode,
         quantity: input.quantity,
         unitReferenceValueKurus: input.unitReferenceValueKurus,
         expiryDate: input.expiryDate,

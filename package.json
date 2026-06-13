@@ -13,7 +13,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx src/jobs/seed.ts",
-    "db:bootstrap-admin": "tsx src/jobs/bootstrap-admin.ts"
+    "db:bootstrap-admin": "tsx src/jobs/bootstrap-admin.ts",
+    "db:create-test-pharmacy": "tsx src/jobs/create-test-pharmacy.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "5.4.0",

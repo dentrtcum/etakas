@@ -1,6 +1,7 @@
 import { CheckCircle2 } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getCurrentAppUser } from "@/lib/auth/current-user";
+import { BarcodeInput } from "@/app/(dashboard)/ilan-olustur/barcode-input";
 
 export default async function CreateListingPage({
   searchParams
@@ -23,8 +24,8 @@ export default async function CreateListingPage({
           </p>
           <h1 className="mt-2 text-3xl font-bold">Ilaci admin incelemesine gonder</h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--muted)]">
-            Sadece admin tarafindan onaylanmis isletmeler ilan gonderebilir. Ilan aktif olmadan once ilac
-            bilgileri, gorseller ve fatura belgesi incelenir.
+            Sistem, ilani giris yapan kullanicinin onayli isletmesine baglar. Barkod katalogda yoksa
+            admin incelemesi icin otomatik urun kaydi hazirlanir.
           </p>
         </div>
 
@@ -37,37 +38,20 @@ export default async function CreateListingPage({
 
         <form className="grid gap-5" action="/api/listings" encType="multipart/form-data" method="post">
           <section className="rounded-md border border-[var(--line)] bg-white p-5">
-            <h2 className="text-lg font-semibold">Stok ve urun bilgileri</h2>
+            <h2 className="text-lg font-semibold">Ilac ve stok bilgileri</h2>
             <div className="mt-5 grid gap-5 md:grid-cols-2">
-              <label className="grid gap-2">
-                <span className="text-sm font-medium">Isletme ID</span>
-                <input className="h-11 rounded-md border border-[var(--line)] bg-white px-3" name="organizationId" required />
-              </label>
-              <label className="grid gap-2">
-                <span className="text-sm font-medium">Urun ID</span>
-                <input className="h-11 rounded-md border border-[var(--line)] bg-white px-3" name="productId" required />
-              </label>
-              <label className="grid gap-2">
-                <span className="text-sm font-medium">Lot/parti no</span>
-                <input className="h-11 rounded-md border border-[var(--line)] bg-white px-3" name="lotNumber" required />
-              </label>
+              <div className="md:col-span-2">
+                <BarcodeInput />
+              </div>
               <label className="grid gap-2">
                 <span className="text-sm font-medium">Son kullanma tarihi</span>
                 <input className="h-11 rounded-md border border-[var(--line)] bg-white px-3" name="expiryDate" required type="date" />
               </label>
               <label className="grid gap-2">
-                <span className="text-sm font-medium">Fatura tarihi</span>
-                <input className="h-11 rounded-md border border-[var(--line)] bg-white px-3" name="invoiceDate" type="date" />
-              </label>
-              <label className="grid gap-2">
-                <span className="text-sm font-medium">Fatura no</span>
-                <input className="h-11 rounded-md border border-[var(--line)] bg-white px-3" name="invoiceNumber" />
-              </label>
-              <label className="grid gap-2">
                 <span className="text-sm font-medium">Miktar</span>
                 <input className="h-11 rounded-md border border-[var(--line)] bg-white px-3" min={1} name="quantity" required type="number" />
               </label>
-              <label className="grid gap-2">
+              <label className="grid gap-2 md:col-span-2">
                 <span className="text-sm font-medium">Birim referans deger (kurus)</span>
                 <input
                   className="h-11 rounded-md border border-[var(--line)] bg-white px-3"
@@ -80,7 +64,11 @@ export default async function CreateListingPage({
             </div>
             <label className="mt-5 grid gap-2">
               <span className="text-sm font-medium">Saklama kosullari</span>
-              <textarea className="min-h-24 rounded-md border border-[var(--line)] bg-white p-3" name="storageConditions" />
+              <textarea
+                className="min-h-24 rounded-md border border-[var(--line)] bg-white p-3"
+                name="storageConditions"
+                placeholder="Istege bagli"
+              />
             </label>
           </section>
 
@@ -97,7 +85,7 @@ export default async function CreateListingPage({
               </label>
               <label className="grid gap-2">
                 <span className="text-sm font-medium">Fatura belgesi</span>
-                <input accept="image/*,.pdf" className="rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm" name="invoiceDocument" required type="file" />
+                <input accept="image/*,.pdf" className="rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm" name="invoiceDocument" type="file" />
               </label>
               <label className="grid gap-2">
                 <span className="text-sm font-medium">Ek belge</span>

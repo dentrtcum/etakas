@@ -8,7 +8,7 @@ export const organizationApplicationSchema = z.object({
   authorizedPersonTitle: z.string().trim().min(2).max(120),
   ownerIdentityNumber: z.string().trim().regex(/^\d{11}$/),
   email: z.string().trim().email().max(320),
-  password: z.string().min(12).max(160),
+  password: z.string().min(8).max(160),
   phone: z.string().trim().min(10).max(32),
   province: z.string().trim().min(2).max(80),
   district: z.string().trim().min(2).max(80),

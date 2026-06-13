@@ -3,8 +3,8 @@ import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 const keyLength = 64;
 
 export function hashPassword(password: string) {
-  if (password.length < 12) {
-    throw new Error("Password must be at least 12 characters.");
+  if (password.length < 8) {
+    throw new Error("Password must be at least 8 characters.");
   }
 
   const salt = randomBytes(16).toString("base64url");
