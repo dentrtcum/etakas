@@ -1,10 +1,14 @@
-import { and, desc, eq, ne } from "drizzle-orm";
+import { and, desc, eq, ne, gt, ilike, or } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { listings, organizations, productBatches, productCatalog } from "@/lib/db/schema";
 import { assertMarketplaceVisibility } from "@/modules/marketplace/marketplace-policy";
 import type { OrganizationKind, ProductKind } from "@/modules/compliance/trading-policy";
 
-export async function listMarketplaceListingsForOrganization(organizationId: string) {
+export async function listMarketplaceListingsForOrganization(
+  organizationId: string,
+  search = "",
+  page = 1
+) {
   const db = getDb();
   const [buyer] = await db
     .select({ id: organizations.id, type: organizations.type, status: organizations.status })
@@ -38,12 +42,26 @@ export async function listMarketplaceListingsForOrganization(organizationId: str
     .where(
       and(
         eq(listings.status, "ACTIVE"),
+        gt(listings.quantityAvailable, 0),
+        gt(productBatches.expiryDate, new Date().toISOString().slice(0, 10)),
+        eq(productCatalog.isActive, true),
+        eq(productCatalog.requiresColdChain, false),
+        eq(productCatalog.isBiological, false),
+        eq(productCatalog.controlCategory, "STANDARD"),
+        buyer.type !== "PHARMACY" ? eq(productCatalog.type, "VETERINARY") : undefined,
+        search
+          ? or(
+              ilike(productCatalog.name, `%${search.slice(0, 120)}%`),
+              ilike(productCatalog.gtin, `%${search.slice(0, 120)}%`)
+            )
+          : undefined,
         ne(listings.sellerOrganizationId, organizationId),
         eq(organizations.status, "APPROVED")
       )
     )
     .orderBy(desc(listings.updatedAt), desc(listings.createdAt))
-    .limit(100);
+    .limit(13)
+    .offset((page - 1) * 12);
 
   return rows.filter((row) => {
     try {

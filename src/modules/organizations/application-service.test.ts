@@ -10,10 +10,8 @@ const secret = "local-development-secret-with-at-least-32-chars";
 
 const application: OrganizationApplication = {
   type: "PHARMACY",
-  legalName: "Sentetik Eczane Ltd.",
   taxNumber: "1234567890",
   authorizedPersonName: "Ayse Yilmaz",
-  authorizedPersonTitle: "Eczaci",
   ownerIdentityNumber: "12345678901",
   email: "basvuru@example.invalid",
   password: "very-secure-password",
@@ -21,9 +19,6 @@ const application: OrganizationApplication = {
   province: "Istanbul",
   district: "Kadikoy",
   address: "Sentetik Mahallesi Test Caddesi No: 1",
-  licenseNumber: "SYN-12345",
-  professionalChamber: "Sentetik Eczaci Odasi",
-  invoiceTitle: "Sentetik Eczane Ltd.",
   kvkkAccepted: true,
   termsAccepted: true
 };
@@ -33,14 +28,18 @@ describe("organization application persistence mapping", () => {
     const insert = buildOrganizationInsert(application, secret);
 
     expect(insert.status).toBe("SUBMITTED");
-    expect(insert.legalNameEncrypted).not.toContain(application.legalName);
+    expect(insert.legalNameEncrypted).toMatch(/^v1\./);
     expect(insert.taxNumberEncrypted).not.toContain(application.taxNumber);
     expect(insert.ownerIdentityNumberEncrypted).not.toContain(application.ownerIdentityNumber);
-    expect(decryptField(insert.legalNameEncrypted, secret)).toBe(application.legalName);
+    expect(decryptField(insert.legalNameEncrypted, secret)).toBe("Doğrulanmış Eczane");
   });
 
   it("encrypts address and phone separately", () => {
-    const insert = buildOrganizationAddressInsert("00000000-0000-4000-8000-000000000001", application, secret);
+    const insert = buildOrganizationAddressInsert(
+      "00000000-0000-4000-8000-000000000001",
+      application,
+      secret
+    );
 
     expect(insert.organizationId).toBe("00000000-0000-4000-8000-000000000001");
     expect(insert.addressEncrypted).not.toContain(application.address);

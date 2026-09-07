@@ -1,51 +1,136 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getCurrentAppUser } from "@/lib/auth/current-user";
-
-const links = [
-  { href: "/pazar-yeri", title: "Pazar yeri", text: "Onayli isletmelerin aktif ilanlarini inceleyin." },
-  { href: "/ilan-olustur", title: "Ilan olustur", text: "Stok ve belge bilgileriyle admin onayina yeni ilan gonderin." }
-];
-
+import { Plus, ArrowUpRight } from "lucide-react";
+import { PageHeading, StatusBadge, EmptyState, formatValue, formatDate } from "@/components/ui";
+import {
+  getAccountContext,
+  getAccountOverview,
+  getOwnListings
+} from "@/modules/organizations/account-queries";
+import { isAdmin } from "@/lib/auth/roles";
 export default async function DashboardPage() {
-  const actor = await getCurrentAppUser();
-
-  if (!actor) {
-    redirect("/giris?next=/panel");
-  }
-
+  const { actor, organization } = await getAccountContext();
+  if (!organization)
+    return (
+      <main className="page-container">
+        <PageHeading eyebrow="HESABIM" title="Hoş geldiniz" description={actor.email} />
+        <EmptyState
+          title={isAdmin(actor) ? "Yönetim alanınız hazır" : "İşletme kaydı bulunamadı"}
+          description={
+            isAdmin(actor)
+              ? "İşletme ve ilan başvurularını yönetim merkezinden inceleyebilirsiniz."
+              : "Hesabınızın henüz bir işletme üyeliği bulunmuyor."
+          }
+          href={isAdmin(actor) ? "/admin36100" : undefined}
+          label="Yönetim merkezine git"
+        />
+      </main>
+    );
+  const [overview, rows] = await Promise.all([
+    getAccountOverview(organization.id),
+    getOwnListings(organization.id)
+  ]);
   return (
-    <main className="min-h-screen bg-[var(--background)]">
-      <section className="mx-auto max-w-6xl px-6 py-10 lg:px-8">
-        <div className="mb-8 flex items-start justify-between gap-4 border-b border-[var(--line)] pb-6">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-[var(--primary)]">
-              Hesabim
-            </p>
-            <h1 className="mt-2 text-3xl font-bold">{actor.email}</h1>
-            <p className="mt-2 text-sm text-[var(--muted)]">
-              Alisveris ve ilan islemleri yalnizca admin tarafindan onaylanan isletmeler icin acilir.
-            </p>
-          </div>
-          <form action="/api/session/logout" method="post">
-            <button className="h-10 rounded-md border border-[var(--line)] bg-white px-4 text-sm font-semibold" type="submit">
-              Cikis
-            </button>
-          </form>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          {links.map((link) => (
-            <Link
-              className="rounded-md border border-[var(--line)] bg-white p-5 hover:border-[var(--primary)]"
-              href={link.href}
-              key={link.href}
-            >
-              <h2 className="font-semibold">{link.title}</h2>
-              <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{link.text}</p>
+    <main className="page-container">
+      <PageHeading
+        eyebrow="ÇALIŞMA ALANINIZ"
+        title="Genel bakış"
+        description={`${actor.email} · ${organization.province} / ${organization.district}`}
+        action={
+          organization.status === "APPROVED" ? (
+            <Link href="/ilan-olustur" className="button button-primary">
+              <Plus size={17} />
+              Yeni ilan oluştur
             </Link>
-          ))}
+          ) : (
+            <StatusBadge status={organization.status} />
+          )
+        }
+      />
+      {organization.status !== "APPROVED" && (
+        <p className="notice">
+          İşletme durumunuz: <StatusBadge status={organization.status} />. Başvurunuz onaylandığında
+          ilan ve takas işlemleri açılır. Belgelerinizi İşletmem sayfasından tamamlayabilirsiniz.
+        </p>
+      )}
+      <div className="stat-grid">
+        {[
+          [
+            "Kullanılabilir bakiye",
+            formatValue(overview.balance - overview.held + organization.creditLimitKurus),
+            "Takas referans değeri"
+          ],
+          ["Rezerve bakiye", formatValue(overview.held), "Devam eden siparişler"],
+          ["İlanlarım", overview.listingCount, "Tüm ilan kayıtlarınız"],
+          ["Devam eden işlemler", overview.orderCount, "Sipariş ve itirazlar"]
+        ].map(([label, value, caption]) => (
+          <div className="stat-card" key={label}>
+            <small>{label}</small>
+            <strong>{value}</strong>
+            <em>{caption}</em>
+          </div>
+        ))}
+      </div>
+      <div className="grid md:grid-cols-2 gap-4">
+        <Link href="/pazar-yeri" className="panel-card flex justify-between gap-4">
+          <div>
+            <h2 className="panel-title">İhtiyacınız olan ürünlere ulaşın</h2>
+            <p className="subtext">İşletmenize uygun aktif ilanları keşfedin.</p>
+          </div>
+          <ArrowUpRight size={22} />
+        </Link>
+        <Link href="/siparisler" className="panel-card flex justify-between gap-4">
+          <div>
+            <h2 className="panel-title">Takas sürecini takip edin</h2>
+            <p className="subtext">Rezervasyon ve teslim onaylarını yönetin.</p>
+          </div>
+          <ArrowUpRight size={22} />
+        </Link>
+      </div>
+      <div className="section-heading">
+        <h2>Son ilanlarınız</h2>
+        <Link href="/ilanlarim">Tümünü gör →</Link>
+      </div>
+      {rows.length ? (
+        <div className="panel-card table-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>ÜRÜN</th>
+                <th>STOK</th>
+                <th>SON KULLANMA</th>
+                <th>DURUM</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.slice(0, 5).map((row) => (
+                <tr key={row.id}>
+                  <td>
+                    <strong>{row.productName}</strong>
+                    <p className="subtext">{row.barcode}</p>
+                  </td>
+                  <td>{row.quantity} adet</td>
+                  <td>{formatDate(row.expiry)}</td>
+                  <td>
+                    <StatusBadge status={row.status} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      </section>
+      ) : (
+        <EmptyState
+          title="İlk ilanınız burada görünecek"
+          description="Stoklarınızı paylaşmak için barkod ve ürün bilgileriyle yeni bir ilan oluşturun."
+          href={organization.status === "APPROVED" ? "/ilan-olustur" : undefined}
+          label="İlk ilanı oluştur"
+        />
+      )}
+      {isAdmin(actor) && (
+        <Link href="/admin36100" className="button button-secondary mt-6">
+          Yönetim merkezine git
+        </Link>
+      )}
     </main>
   );
 }

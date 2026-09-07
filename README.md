@@ -66,6 +66,14 @@ INITIAL_ADMIN_PASSWORD=
 - İşletme başvurusu: `/isletme-kaydi`
 - Admin panel başlangıcı: `/admin36100`
 - İlan oluşturma başlangıcı: `/ilan-olustur`
+- İşletme çalışma alanı: `/panel`
+- İlan takibi: `/ilanlarim`
+- Sipariş ve teslim takibi: `/siparisler`
+- İşletme ve bakiye bilgileri: `/hesabim`
+
+İşletme başvurusunda temel iletişim, vergi, kimlik ve açık adres bilgileri alınır. Açık adres
+zorunludur; ruhsat, vergi levhası, kimlik, diploma, oda kaydı ve yetki belgeleri isteğe bağlıdır
+ve incelemeyi kolaylaştırmak için önerilir.
 
 ## Ürün ve İlan Akışı
 

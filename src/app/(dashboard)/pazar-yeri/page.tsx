@@ -1,68 +1,158 @@
-import { redirect } from "next/navigation";
-import { getCurrentAppUser } from "@/lib/auth/current-user";
+import Link from "next/link";
+import { randomUUID } from "node:crypto";
+import { Package, MapPin, Search } from "lucide-react";
+import { PageHeading, EmptyState, formatValue, formatDate, StatusBadge } from "@/components/ui";
+import { SubmitForm } from "@/components/submit-form";
+import { getAccountContext, readPage } from "@/modules/organizations/account-queries";
 import { listMarketplaceListingsForOrganization } from "@/modules/marketplace/marketplace-queries";
-
 export default async function MarketplacePage({
   searchParams
 }: {
-  searchParams: Promise<{ organizationId?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }) {
-  const actor = await getCurrentAppUser();
-  const organizationId = (await searchParams).organizationId ?? actor?.organizationIds[0];
-
-  if (!actor) {
-    redirect("/giris");
-  }
-
-  if (!organizationId) {
+  const { actor, organization } = await getAccountContext();
+  const params = await searchParams;
+  const page = readPage(params.page);
+  const q = params.q?.trim().slice(0, 120) || "";
+  if (organization?.status !== "APPROVED")
     return (
-      <main className="min-h-screen bg-[var(--surface)] px-6 py-10">
-        <section className="mx-auto max-w-5xl rounded-md border border-[var(--line)] bg-white p-8">
-          <h1 className="text-2xl font-bold">Pazar yeri</h1>
-          <p className="mt-3 text-[var(--muted)]">Onaylı bir işletme üyeliği bulunamadı.</p>
-        </section>
+      <main className="page-container">
+        <PageHeading eyebrow="İŞLETMELER ARASI TAKAS" title="Pazar yeri" />
+        <EmptyState
+          title="İşletme onayı bekleniyor"
+          description="İşletmeniz onaylandıktan sonra uygun ilanlar burada görünecek."
+          href="/hesabim"
+          label="İşletmemi görüntüle"
+        />
       </main>
     );
-  }
-
-  const rows = await listMarketplaceListingsForOrganization(organizationId);
-
+  const rows = await listMarketplaceListingsForOrganization(organization.id, q, page);
+  const canOrder = actor.roles.some((role) =>
+    ["ORGANIZATION_OWNER", "ORGANIZATION_MANAGER", "ORDER_MANAGER"].includes(role)
+  );
   return (
-    <main className="min-h-screen bg-[var(--surface)]">
-      <section className="mx-auto max-w-6xl px-6 py-10 lg:px-8">
-        <div className="mb-8 border-b border-[var(--line)] pb-6">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--primary)]">
-            Pazar yeri
-          </p>
-          <h1 className="mt-2 text-3xl font-bold">Aktif ilanlar</h1>
-        </div>
-        <div className="grid gap-3">
-          {rows.map((row) => (
-            <article className="rounded-md border border-[var(--line)] bg-white p-5" key={row.id}>
-              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <h2 className="font-semibold">{row.productName}</h2>
-                  <p className="mt-1 text-sm text-[var(--muted)]">
-                    {row.productType} / GTIN {row.productGtin} / SKT {row.minExpiryDate}
-                  </p>
-                  <p className="mt-2 text-sm text-[var(--muted)]">
-                    {row.sellerPublicAlias} - {row.sellerProvince}
-                  </p>
+    <main className="page-container">
+      <PageHeading
+        eyebrow="İŞLETMELER ARASI TAKAS"
+        title="Pazar yeri"
+        description="İşletmenize uygun ürünleri bulun. Kendi ilanlarınız bu listede gösterilmez."
+        action={
+          <Link href="/ilan-olustur" className="button button-primary">
+            + Yeni ilan
+          </Link>
+        }
+      />
+      <form method="get" className="filter-bar">
+        <label className="sr-only" htmlFor="product-search">
+          Ürün adı veya barkod
+        </label>
+        <input
+          id="product-search"
+          type="search"
+          name="q"
+          defaultValue={q}
+          placeholder="Ürün adı veya barkod ile ara…"
+        />
+        <button className="button button-secondary" type="submit">
+          <Search size={16} />
+          Ara
+        </button>
+        {q && (
+          <Link href="/pazar-yeri" className="subtext underline">
+            Filtreyi temizle
+          </Link>
+        )}
+      </form>
+      {rows.length ? (
+        <div className="card-grid">
+          {rows.slice(0, 12).map((row) => (
+            <article className="product-card" key={row.id}>
+              <div className="product-symbol">
+                <Package size={39} strokeWidth={1.3} />
+              </div>
+              <div className="product-card-body">
+                <StatusBadge status={row.status} />
+                <h2>{row.productName}</h2>
+                <p className="subtext">Barkod {row.productGtin}</p>
+                <p className="subtext flex items-center gap-1 mt-2">
+                  <MapPin size={13} />
+                  {row.sellerProvince} · {row.sellerPublicAlias}
+                </p>
+                <div className="product-details">
+                  <div>
+                    <p className="subtext">Kullanılabilir</p>
+                    <strong>{row.quantityAvailable} adet</strong>
+                  </div>
+                  <div>
+                    <p className="subtext">Birim referans</p>
+                    <strong>{formatValue(row.unitReferenceValueKurus)}</strong>
+                  </div>
                 </div>
-                <div className="text-sm">
-                  <div>{row.quantityAvailable} adet</div>
-                  <div className="font-semibold">{row.unitReferenceValueKurus} kr</div>
-                </div>
+                <p className="subtext mb-4">SKT: {formatDate(row.minExpiryDate)}</p>
+                {canOrder && (
+                  <SubmitForm
+                    endpoint="/api/orders"
+                    label="Takas için rezerve et"
+                    json
+                    values={{
+                      buyerOrganizationId: organization.id,
+                      listingId: row.id,
+                      idempotencyKey: randomUUID()
+                    }}
+                    redirectTo="/siparisler"
+                  >
+                    <label>
+                      Miktar
+                      <input
+                        type="number"
+                        min={1}
+                        max={row.quantityAvailable}
+                        defaultValue={1}
+                        required
+                        name="quantity"
+                      />
+                    </label>
+                  </SubmitForm>
+                )}
               </div>
             </article>
           ))}
-          {rows.length === 0 ? (
-            <div className="rounded-md border border-[var(--line)] bg-white p-8 text-center text-[var(--muted)]">
-              Görüntülenebilir aktif ilan yok.
-            </div>
-          ) : null}
         </div>
-      </section>
+      ) : (
+        <EmptyState
+          title={q ? "Aramanıza uygun ilan yok" : "Henüz aktif ilan bulunmuyor"}
+          description={
+            q
+              ? "Farklı bir ürün adı veya barkodla tekrar arayın."
+              : "Diğer onaylı işletmeler ilan yayınladığında bu alanda görünecek. Siz de kendi stoklarınızı paylaşabilirsiniz."
+          }
+          href={q ? "/pazar-yeri" : "/ilan-olustur"}
+          label={q ? "Tüm ilanları göster" : "İlan oluştur"}
+        />
+      )}
+      <div className="pagination">
+        {page > 1 ? (
+          <Link
+            className="button button-secondary"
+            href={`?q=${encodeURIComponent(q)}&page=${page - 1}`}
+          >
+            ← Önceki
+          </Link>
+        ) : (
+          <span />
+        )}
+        <span>Sayfa {page}</span>
+        {rows.length > 12 ? (
+          <Link
+            className="button button-secondary"
+            href={`?q=${encodeURIComponent(q)}&page=${page + 1}`}
+          >
+            Sonraki →
+          </Link>
+        ) : (
+          <span />
+        )}
+      </div>
     </main>
   );
 }

@@ -1,8 +1,8 @@
-import { desc, inArray } from "drizzle-orm";
+import { desc, inArray, eq, or } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
-import { orders } from "@/lib/db/schema";
+import { orders, listings, productBatches, productCatalog } from "@/lib/db/schema";
 
-export async function listAdminOrderQueue() {
+export async function listAdminOrderQueue(page = 1) {
   return getDb()
     .select({
       id: orders.id,
@@ -17,7 +17,47 @@ export async function listAdminOrderQueue() {
       updatedAt: orders.updatedAt
     })
     .from(orders)
-    .where(inArray(orders.status, ["BUYER_CONFIRMATION_PENDING", "DISPUTED", "ADMIN_FROZEN", "COMPLETED"]))
+    .where(
+      inArray(orders.status, [
+        "RESERVED",
+        "CONTACT_DETAILS_REVEALED",
+        "SELLER_PREPARING",
+        "READY_FOR_PICKUP",
+        "HANDOVER_DECLARED",
+        "BUYER_CONFIRMATION_PENDING",
+        "DISPUTED",
+        "ADMIN_FROZEN",
+        "COMPLETED"
+      ])
+    )
     .orderBy(desc(orders.updatedAt), desc(orders.createdAt))
-    .limit(50);
+    .limit(21)
+    .offset((page - 1) * 20);
+}
+
+export async function listOrganizationOrders(organizationId: string, page = 1) {
+  return getDb()
+    .select({
+      id: orders.id,
+      status: orders.status,
+      buyerOrganizationId: orders.buyerOrganizationId,
+      sellerOrganizationId: orders.sellerOrganizationId,
+      quantity: orders.quantity,
+      total: orders.totalReferenceValueKurus,
+      createdAt: orders.createdAt,
+      productName: productCatalog.name
+    })
+    .from(orders)
+    .innerJoin(listings, eq(listings.id, orders.listingId))
+    .innerJoin(productBatches, eq(productBatches.id, listings.batchId))
+    .innerJoin(productCatalog, eq(productCatalog.id, productBatches.productId))
+    .where(
+      or(
+        eq(orders.buyerOrganizationId, organizationId),
+        eq(orders.sellerOrganizationId, organizationId)
+      )
+    )
+    .orderBy(desc(orders.createdAt), orders.id)
+    .limit(21)
+    .offset((page - 1) * 20);
 }

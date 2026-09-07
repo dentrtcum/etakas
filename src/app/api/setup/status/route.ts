@@ -13,6 +13,7 @@ export async function GET() {
       status.env.encryptionKey &&
       status.database.connected &&
       status.database.migrationsApplied &&
+      status.storage.connected &&
       status.data.superAdminExists,
     ...status
   });

@@ -35,7 +35,11 @@ function assertSubmissionConfig() {
 
 export function assertListingExpiry(expiryDate: string, now = new Date()) {
   const expiry = new Date(`${expiryDate}T00:00:00.000Z`);
-  if (Number.isNaN(expiry.getTime()) || expiry <= now) {
+  if (
+    Number.isNaN(expiry.getTime()) ||
+    expiry.toISOString().slice(0, 10) !== expiryDate ||
+    expiry <= now
+  ) {
     throw new ListingSubmissionError("Expired products cannot be listed.");
   }
 }
@@ -80,7 +84,10 @@ export async function submitListingForReview(
       .from(organizations)
       .where(
         actor.organizationIds.length > 0
-          ? and(inArray(organizations.id, actor.organizationIds), eq(organizations.status, "APPROVED"))
+          ? and(
+              inArray(organizations.id, actor.organizationIds),
+              eq(organizations.status, "APPROVED")
+            )
           : eq(organizations.id, "00000000-0000-0000-0000-000000000000")
       )
       .limit(1);
@@ -108,7 +115,7 @@ export async function submitListingForReview(
         await tx
           .insert(productCatalog)
           .values({
-            name: `Barkod ${input.barcode}`,
+            name: input.productName ?? `Barkod ${input.barcode}`,
             type: inferProductType(organization.type),
             gtin: input.barcode,
             controlCategory: "STANDARD",
@@ -116,7 +123,7 @@ export async function submitListingForReview(
           })
           .onConflictDoUpdate({
             target: productCatalog.gtin,
-            set: { isActive: true, updatedAt: new Date() }
+            set: { updatedAt: new Date() }
           })
           .returning({
             id: productCatalog.id,
@@ -133,6 +140,7 @@ export async function submitListingForReview(
     }
 
     if (
+      !product.isActive ||
       product.requiresColdChain ||
       product.isBiological ||
       product.controlCategory !== "STANDARD"
@@ -145,7 +153,10 @@ export async function submitListingForReview(
       .values({
         organizationId: organization.id,
         productId: product.id,
-        lotNumberEncrypted: encryptField(buildSystemLotNumber(input.barcode, input.expiryDate), encryptionKey),
+        lotNumberEncrypted: encryptField(
+          input.lotNumber || buildSystemLotNumber(input.barcode, input.expiryDate),
+          encryptionKey
+        ),
         expiryDate: input.expiryDate,
         invoiceDate: null,
         invoiceNumberEncrypted: null,
@@ -180,8 +191,12 @@ export async function submitListingForReview(
       throw new ListingSubmissionError("Listing could not be created.");
     }
 
-    const imageEvidence = uploadedEvidence.filter((item) => item.kind === "image" || item.kind === "package");
-    const documentEvidence = uploadedEvidence.filter((item) => item.kind !== "image" && item.kind !== "package");
+    const imageEvidence = uploadedEvidence.filter(
+      (item) => item.kind === "image" || item.kind === "package"
+    );
+    const documentEvidence = uploadedEvidence.filter(
+      (item) => item.kind !== "image" && item.kind !== "package"
+    );
 
     if (imageEvidence.length > 0) {
       await tx.insert(listingImages).values(

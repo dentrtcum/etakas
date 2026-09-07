@@ -1,46 +1,73 @@
+import Link from "next/link";
+import { ArrowLeftRight, Check } from "lucide-react";
 export default async function LoginPage({
   searchParams
 }: {
   searchParams: Promise<{ error?: string; next?: string }>;
 }) {
   const params = await searchParams;
-
   return (
-    <main className="grid min-h-screen place-items-center bg-[var(--background)] px-6">
-      <section className="w-full max-w-md rounded-md border border-[var(--line)] bg-white p-6 shadow-sm">
-        <h1 className="text-2xl font-bold">Giriş</h1>
-        {params.error === "invalid" ? (
-          <p className="mt-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
-            E-posta veya parola hatalı.
+    <main className="auth-wrap">
+      <aside className="auth-aside">
+        <div>
+          <p className="eyebrow">YENİDEN MERHABA</p>
+          <h2 className="text-4xl font-bold leading-tight mt-5">
+            İşletmenizin
+            <br />
+            takas alanı.
+          </h2>
+          <p className="subtext mt-5">
+            Stoklarınızı, ilanlarınızı ve siparişlerinizi tek bir yerden yönetin.
           </p>
-        ) : null}
-        <form className="mt-6 grid gap-4" action="/api/session/login" method="post">
-          <input name="next" type="hidden" value={params.next ?? "/"} />
-          <label className="grid gap-2">
-            <span className="text-sm font-medium">E-posta</span>
+        </div>
+        <ArrowLeftRight size={65} strokeWidth={1} />
+        <p className="hero-caption">
+          <Check size={16} />
+          İşletmenize özel çalışma alanı
+        </p>
+      </aside>
+      <section className="auth-form">
+        <h1>Giriş yap</h1>
+        <p className="subtext mb-7">Devam etmek için hesap bilgilerinizi girin.</p>
+        {params.error && (
+          <p className="notice notice-error" role="alert">
+            {params.error === "invalid"
+              ? "E-posta veya parola hatalı. Bilgilerinizi kontrol edin."
+              : "Giriş şu anda tamamlanamıyor. Lütfen tekrar deneyin."}
+          </p>
+        )}
+        <form className="grid gap-5" action="/api/session/login" method="post">
+          <input type="hidden" name="next" value={params.next ?? "/panel"} />
+          <label>
+            E-posta adresi
             <input
-              className="h-11 rounded-md border border-[var(--line)] px-3"
               name="email"
-              required
               type="email"
-            />
-          </label>
-          <label className="grid gap-2">
-            <span className="text-sm font-medium">Parola</span>
-            <input
-              className="h-11 rounded-md border border-[var(--line)] px-3"
-              name="password"
+              autoComplete="username"
               required
-              type="password"
+              placeholder="ornek@eczane.com"
             />
           </label>
-          <button
-            className="h-11 rounded-md bg-[var(--primary)] font-semibold text-white hover:bg-[var(--primary-strong)]"
-            type="submit"
-          >
+          <label>
+            Parola
+            <input
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              placeholder="Parolanız"
+            />
+          </label>
+          <button className="button button-primary mt-2" type="submit">
             Giriş yap
           </button>
         </form>
+        <p className="subtext mt-7 text-center">
+          Henüz hesabınız yok mu?{" "}
+          <Link className="font-bold text-[var(--primary)]" href="/isletme-kaydi">
+            İşletme kaydı
+          </Link>
+        </p>
       </section>
     </main>
   );

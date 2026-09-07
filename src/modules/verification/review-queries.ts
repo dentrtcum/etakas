@@ -26,7 +26,7 @@ function decryptForAdmin(encryptedValue: string) {
   }
 }
 
-export async function listOrganizationReviewQueue() {
+export async function listOrganizationReviewQueue(page = 1) {
   const db = getDb();
   const rows = await db
     .select({
@@ -34,6 +34,7 @@ export async function listOrganizationReviewQueue() {
       type: organizations.type,
       status: organizations.status,
       publicAlias: organizations.publicAlias,
+      creditLimitKurus: organizations.creditLimitKurus,
       legalNameEncrypted: organizations.legalNameEncrypted,
       taxNumberEncrypted: organizations.taxNumberEncrypted,
       licenseNumberEncrypted: organizations.licenseNumberEncrypted,
@@ -50,7 +51,8 @@ export async function listOrganizationReviewQueue() {
     .from(organizations)
     .where(inArray(organizations.status, reviewQueueStatuses))
     .orderBy(desc(organizations.updatedAt), desc(organizations.createdAt))
-    .limit(50);
+    .limit(21)
+    .offset((page - 1) * 20);
 
   const organizationIds = rows.map((row) => row.id);
   const addresses =
@@ -68,6 +70,7 @@ export async function listOrganizationReviewQueue() {
     organizationIds.length > 0
       ? await db
           .select({
+            id: organizationDocuments.id,
             organizationId: organizationDocuments.organizationId,
             kind: organizationDocuments.kind,
             scanStatus: organizationDocuments.scanStatus,
@@ -85,7 +88,9 @@ export async function listOrganizationReviewQueue() {
       ...row,
       legalName: decryptForAdmin(row.legalNameEncrypted) ?? row.publicAlias,
       taxNumber: row.taxNumberEncrypted ? decryptForAdmin(row.taxNumberEncrypted) : null,
-      licenseNumber: row.licenseNumberEncrypted ? decryptForAdmin(row.licenseNumberEncrypted) : null,
+      licenseNumber: row.licenseNumberEncrypted
+        ? decryptForAdmin(row.licenseNumberEncrypted)
+        : null,
       authorizedPersonName: row.authorizedPersonNameEncrypted
         ? decryptForAdmin(row.authorizedPersonNameEncrypted)
         : null,

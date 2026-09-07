@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import {
   auditLogs,
@@ -32,24 +33,26 @@ export class PersistenceConfigurationError extends Error {
 
 function getEncryptionSecret() {
   if (!serverEnv.ENCRYPTION_KEY) {
-    throw new PersistenceConfigurationError("ENCRYPTION_KEY is required to persist organization data.");
+    throw new PersistenceConfigurationError(
+      "ENCRYPTION_KEY is required to persist organization data."
+    );
   }
 
   return serverEnv.ENCRYPTION_KEY;
 }
 
-export function buildOrganizationInsert(application: OrganizationApplication, encryptionSecret: string) {
+export function buildOrganizationInsert(
+  application: OrganizationApplication,
+  encryptionSecret: string
+) {
   return {
     type: application.type as OrganizationType,
     status: "SUBMITTED" as OrganizationStatus,
-    legalNameEncrypted: encryptField(application.legalName, encryptionSecret),
+    legalNameEncrypted: encryptField(createPublicAlias(application.type), encryptionSecret),
     publicAlias: createPublicAlias(application.type),
     taxNumberEncrypted: encryptField(application.taxNumber, encryptionSecret),
-    licenseNumberEncrypted: encryptField(application.licenseNumber, encryptionSecret),
     authorizedPersonNameEncrypted: encryptField(application.authorizedPersonName, encryptionSecret),
-    authorizedPersonTitleEncrypted: encryptField(application.authorizedPersonTitle, encryptionSecret),
     ownerIdentityNumberEncrypted: encryptField(application.ownerIdentityNumber, encryptionSecret),
-    professionalChamberEncrypted: encryptField(application.professionalChamber, encryptionSecret),
     contactEmailEncrypted: encryptField(application.email.toLowerCase(), encryptionSecret),
     province: application.province,
     district: application.district
@@ -78,6 +81,13 @@ export async function submitOrganizationApplication(
 
   const encryptionSecret = getEncryptionSecret();
   const db = getDb();
+
+  const [existingUser] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, application.email.toLowerCase()))
+    .limit(1);
+  if (existingUser) throw new Error("EMAIL_ALREADY_REGISTERED");
 
   const uploadedDocuments = await Promise.all(
     documents.map(async (document) => ({
@@ -112,14 +122,6 @@ export async function submitOrganizationApplication(
         emailVerified: false,
         passwordHash: hashPassword(application.password),
         totpEnabled: false
-      })
-      .onConflictDoUpdate({
-        target: users.email,
-        set: {
-          name: application.authorizedPersonName,
-          passwordHash: hashPassword(application.password),
-          updatedAt: new Date()
-        }
       })
       .returning({ id: users.id });
 

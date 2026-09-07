@@ -1,11 +1,12 @@
 import { eq } from "drizzle-orm";
+import { cache } from "react";
 import { getDb } from "@/lib/db/client";
 import { organizationMembers, userRoles, users } from "@/lib/db/schema";
 import { getSessionUserIdFromCookie } from "@/lib/auth/app-session";
 import { isAdminRole, type AppRole, type AppSessionUser } from "@/lib/auth/roles";
 import { serverEnv } from "@/lib/env";
 
-export async function getCurrentAppUser(): Promise<AppSessionUser | null> {
+export const getCurrentAppUser = cache(async (): Promise<AppSessionUser | null> => {
   const userId = await getSessionUserIdFromCookie();
 
   if (!userId || !serverEnv.DATABASE_URL) {
@@ -27,7 +28,10 @@ export async function getCurrentAppUser(): Promise<AppSessionUser | null> {
     return null;
   }
 
-  const globalRoles = await db.select({ role: userRoles.role }).from(userRoles).where(eq(userRoles.userId, userId));
+  const globalRoles = await db
+    .select({ role: userRoles.role })
+    .from(userRoles)
+    .where(eq(userRoles.userId, userId));
   const memberships = await db
     .select({
       organizationId: organizationMembers.organizationId,
@@ -36,7 +40,10 @@ export async function getCurrentAppUser(): Promise<AppSessionUser | null> {
     .from(organizationMembers)
     .where(eq(organizationMembers.userId, userId));
 
-  const roles = [...globalRoles.map((row) => row.role), ...memberships.map((row) => row.role)] as AppRole[];
+  const roles = [
+    ...globalRoles.map((row) => row.role),
+    ...memberships.map((row) => row.role)
+  ] as AppRole[];
 
   return {
     id: dbUser.id,
@@ -47,4 +54,4 @@ export async function getCurrentAppUser(): Promise<AppSessionUser | null> {
       .map((membership) => membership.organizationId),
     totpEnabled: dbUser.totpEnabled
   };
-}
+});

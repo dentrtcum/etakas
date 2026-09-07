@@ -1,109 +1,141 @@
-import { CheckCircle2 } from "lucide-react";
-import { redirect } from "next/navigation";
-import { getCurrentAppUser } from "@/lib/auth/current-user";
-import { BarcodeInput } from "@/app/(dashboard)/ilan-olustur/barcode-input";
-
-export default async function CreateListingPage({
-  searchParams
-}: {
-  searchParams: Promise<{ submitted?: string }>;
-}) {
-  const actor = await getCurrentAppUser();
-  const params = await searchParams;
-
-  if (!actor) {
-    redirect("/giris");
-  }
-
+import { PageHeading, EmptyState } from "@/components/ui";
+import { SubmitForm } from "@/components/submit-form";
+import { getAccountContext } from "@/modules/organizations/account-queries";
+import { BarcodeInput } from "./barcode-input";
+export default async function CreateListingPage() {
+  const { organization } = await getAccountContext();
+  if (organization?.status !== "APPROVED")
+    return (
+      <main className="page-container">
+        <PageHeading eyebrow="İLAN YÖNETİMİ" title="Yeni ilan" />
+        <EmptyState
+          title="Önce işletme onayı gerekiyor"
+          description="Başvurunuz onaylandıktan sonra stoklarınızı ilan olarak paylaşabilirsiniz."
+          href="/hesabim"
+          label="Başvurumu görüntüle"
+        />
+      </main>
+    );
   return (
-    <main className="min-h-screen bg-[var(--surface)]">
-      <section className="mx-auto max-w-5xl px-6 py-10 lg:px-8">
-        <div className="mb-8 border-b border-[var(--line)] pb-6">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--primary)]">
-            Ilan olusturma
-          </p>
-          <h1 className="mt-2 text-3xl font-bold">Ilaci admin incelemesine gonder</h1>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--muted)]">
-            Sistem, ilani giris yapan kullanicinin onayli isletmesine baglar. Barkod katalogda yoksa
-            admin incelemesi icin otomatik urun kaydi hazirlanir.
-          </p>
-        </div>
-
-        {params.submitted ? (
-          <div className="mb-6 flex items-start gap-3 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-            <CheckCircle2 aria-hidden="true" size={18} />
-            <p>Ilan basvurusu alindi. Admin onayindan sonra pazar yerinde yayinlanacak.</p>
-          </div>
-        ) : null}
-
-        <form className="grid gap-5" action="/api/listings" encType="multipart/form-data" method="post">
-          <section className="rounded-md border border-[var(--line)] bg-white p-5">
-            <h2 className="text-lg font-semibold">Ilac ve stok bilgileri</h2>
-            <div className="mt-5 grid gap-5 md:grid-cols-2">
-              <div className="md:col-span-2">
-                <BarcodeInput />
-              </div>
-              <label className="grid gap-2">
-                <span className="text-sm font-medium">Son kullanma tarihi</span>
-                <input className="h-11 rounded-md border border-[var(--line)] bg-white px-3" name="expiryDate" required type="date" />
-              </label>
-              <label className="grid gap-2">
-                <span className="text-sm font-medium">Miktar</span>
-                <input className="h-11 rounded-md border border-[var(--line)] bg-white px-3" min={1} name="quantity" required type="number" />
-              </label>
-              <label className="grid gap-2 md:col-span-2">
-                <span className="text-sm font-medium">Birim referans deger (kurus)</span>
-                <input
-                  className="h-11 rounded-md border border-[var(--line)] bg-white px-3"
-                  min={0}
-                  name="unitReferenceValueKurus"
-                  required
-                  type="number"
-                />
-              </label>
+    <main className="page-container max-w-4xl">
+      <PageHeading
+        eyebrow="STOKLARINIZI DEĞERLENDİRİN"
+        title="Yeni ilan oluştur"
+        description="Ürününüzü tanıtın, stok bilgilerini ekleyin. İlanınız inceleme sonrasında pazar yerinde yayınlanır."
+      />
+      <SubmitForm endpoint="/api/listings" label="İncelemeye gönder" redirectTo="/ilanlarim">
+        <section className="panel-card">
+          <div className="form-section-title">
+            <span className="step-number">01</span>
+            <div>
+              <h2 className="panel-title">Ürün ve stok bilgileri</h2>
+              <p className="subtext">
+                Barkodu elle yazabilir veya desteklenen cihazlarda kamerayla okutabilirsiniz.
+              </p>
             </div>
-            <label className="mt-5 grid gap-2">
-              <span className="text-sm font-medium">Saklama kosullari</span>
-              <textarea
-                className="min-h-24 rounded-md border border-[var(--line)] bg-white p-3"
-                name="storageConditions"
-                placeholder="Istege bagli"
+          </div>
+          <div className="form-grid">
+            <div className="md:col-span-2">
+              <BarcodeInput />
+            </div>
+            <label className="md:col-span-2">
+              Ürün adı
+              <input
+                name="productName"
+                required
+                minLength={3}
+                maxLength={240}
+                placeholder="Ürünün ambalaj üzerindeki tam adı"
+              />
+              <small>Katalogda kayıtlı barkodlar mevcut ürün bilgileriyle eşleştirilir.</small>
+            </label>
+            <label>
+              Son kullanma tarihi
+              <input name="expiryDate" required type="date" />
+            </label>
+            <label>
+              Miktar
+              <input
+                name="quantity"
+                required
+                type="number"
+                min={1}
+                max={100000}
+                placeholder="Adet"
               />
             </label>
-          </section>
-
-          <section className="rounded-md border border-[var(--line)] bg-white p-5">
-            <h2 className="text-lg font-semibold">Gorsel ve belgeler</h2>
-            <div className="mt-5 grid gap-5 md:grid-cols-2">
-              <label className="grid gap-2">
-                <span className="text-sm font-medium">Ilac fotografi</span>
-                <input accept="image/*" className="rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm" name="medicineImage" required type="file" />
-              </label>
-              <label className="grid gap-2">
-                <span className="text-sm font-medium">Ambalaj / seri no fotografi</span>
-                <input accept="image/*" className="rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm" name="packageImage" required type="file" />
-              </label>
-              <label className="grid gap-2">
-                <span className="text-sm font-medium">Fatura belgesi</span>
-                <input accept="image/*,.pdf" className="rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm" name="invoiceDocument" type="file" />
-              </label>
-              <label className="grid gap-2">
-                <span className="text-sm font-medium">Ek belge</span>
-                <input accept="image/*,.pdf" className="rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm" name="otherDocument" type="file" />
-              </label>
-            </div>
-          </section>
-
-          <div>
-            <button
-              className="h-11 rounded-md bg-[var(--primary)] px-5 font-semibold text-white hover:bg-[var(--primary-strong)]"
-              type="submit"
-            >
-              Admin incelemesine gonder
-            </button>
+            <label>
+              Birim referans değeri (TL)
+              <input
+                name="unitReferenceValue"
+                required
+                type="number"
+                min="0.01"
+                step="0.01"
+                max="1000000"
+                placeholder="0,00"
+              />
+              <small>Takas bakiyesinde kullanılacak birim değer.</small>
+            </label>
+            <label>
+              Parti / lot numarası <span className="field-optional">İsteğe bağlı</span>
+              <input name="lotNumber" maxLength={120} />
+            </label>
+            <label className="md:col-span-2">
+              Saklama koşulları <span className="field-optional">İsteğe bağlı</span>
+              <textarea name="storageConditions" maxLength={500} rows={2} />
+            </label>
           </div>
-        </form>
-      </section>
+        </section>
+        <section className="panel-card">
+          <div className="form-section-title">
+            <span className="step-number">02</span>
+            <div>
+              <h2 className="panel-title">Görsel ve belgeler</h2>
+              <p className="subtext">
+                Ürün ve ambalaj görselleri gereklidir. Tüm dosyaların toplamı en fazla 4 MB
+                olabilir.
+              </p>
+            </div>
+          </div>
+          <div className="form-grid">
+            <label>
+              Ürün fotoğrafı
+              <input
+                name="medicineImage"
+                required
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+              />
+            </label>
+            <label>
+              Ambalaj / seri no fotoğrafı
+              <input
+                name="packageImage"
+                required
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+              />
+            </label>
+            <label>
+              Fatura belgesi <span className="field-optional">İsteğe bağlı · Önerilir</span>
+              <input
+                name="invoiceDocument"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+              />
+            </label>
+            <label>
+              Ek belge <span className="field-optional">İsteğe bağlı</span>
+              <input
+                name="otherDocument"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+              />
+            </label>
+          </div>
+        </section>
+      </SubmitForm>
     </main>
   );
 }

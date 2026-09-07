@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { serverEnv } from "@/lib/env";
 import { userRoles, users } from "@/lib/db/schema";
+import { list } from "@vercel/blob";
 
 export type SetupStatus = {
   env: {
@@ -14,6 +15,7 @@ export type SetupStatus = {
     legalApprovalConfirmed: boolean;
   };
   database: {
+    provider: string;
     connected: boolean;
     migrationsApplied: boolean;
     error: string | null;
@@ -21,6 +23,7 @@ export type SetupStatus = {
   data: {
     superAdminExists: boolean;
   };
+  storage: { configured: boolean; connected: boolean; provider: string };
 };
 
 export async function getSetupStatus(): Promise<SetupStatus> {
@@ -34,14 +37,32 @@ export async function getSetupStatus(): Promise<SetupStatus> {
       legalApprovalConfirmed: serverEnv.LEGAL_APPROVAL_CONFIRMED
     },
     database: {
+      provider:
+        serverEnv.DATABASE_URL && new URL(serverEnv.DATABASE_URL).hostname.endsWith(".neon.tech")
+          ? "Neon"
+          : "PostgreSQL",
       connected: false,
       migrationsApplied: false,
       error: null
     },
     data: {
       superAdminExists: false
+    },
+    storage: {
+      configured: Boolean(serverEnv.BLOB_READ_WRITE_TOKEN),
+      connected: false,
+      provider: "Vercel Blob"
     }
   };
+
+  if (serverEnv.BLOB_READ_WRITE_TOKEN) {
+    try {
+      await list({ token: serverEnv.BLOB_READ_WRITE_TOKEN, limit: 1 });
+      status.storage.connected = true;
+    } catch {
+      status.storage.connected = false;
+    }
+  }
 
   if (!serverEnv.DATABASE_URL) {
     status.database.error = "DATABASE_URL is missing.";
@@ -63,7 +84,9 @@ export async function getSetupStatus(): Promise<SetupStatus> {
         as ok
     `);
 
-    status.database.migrationsApplied = Boolean((tableCheck as unknown as { ok: boolean }[])[0]?.ok);
+    status.database.migrationsApplied = Boolean(
+      (tableCheck as unknown as { ok: boolean }[])[0]?.ok
+    );
 
     if (status.database.migrationsApplied) {
       const [superAdmin] = await db
@@ -75,8 +98,8 @@ export async function getSetupStatus(): Promise<SetupStatus> {
 
       status.data.superAdminExists = Boolean(superAdmin);
     }
-  } catch (error) {
-    status.database.error = error instanceof Error ? error.message : "Unknown database error.";
+  } catch {
+    status.database.error = "Veritabanı bağlantısı veya şema kontrolü tamamlanamadı.";
   }
 
   return status;

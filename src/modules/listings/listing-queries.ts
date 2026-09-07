@@ -1,11 +1,24 @@
 import { desc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
-import { listingDocuments, listingImages, listings, organizations, productBatches, productCatalog } from "@/lib/db/schema";
+import {
+  listingDocuments,
+  listingImages,
+  listings,
+  organizations,
+  productBatches,
+  productCatalog
+} from "@/lib/db/schema";
 import type { ListingReviewStatus } from "@/modules/listings/listing-review";
 
-const listingQueueStatuses = ["PENDING_REVIEW", "CHANGES_REQUESTED"] as const satisfies ListingReviewStatus[];
+const listingQueueStatuses = [
+  "PENDING_REVIEW",
+  "CHANGES_REQUESTED",
+  "ACTIVE",
+  "PAUSED",
+  "PARTIALLY_RESERVED"
+] as const satisfies ListingReviewStatus[];
 
-export async function listListingReviewQueue() {
+export async function listListingReviewQueue(page = 1) {
   const db = getDb();
   const rows = await db
     .select({
@@ -28,13 +41,18 @@ export async function listListingReviewQueue() {
     .innerJoin(productCatalog, eq(productCatalog.id, productBatches.productId))
     .where(inArray(listings.status, listingQueueStatuses))
     .orderBy(desc(listings.updatedAt), desc(listings.createdAt))
-    .limit(50);
+    .limit(21)
+    .offset((page - 1) * 20);
 
   const listingIds = rows.map((row) => row.id);
   const images =
     listingIds.length > 0
       ? await db
-          .select({ listingId: listingImages.listingId, scanStatus: listingImages.scanStatus })
+          .select({
+            id: listingImages.id,
+            listingId: listingImages.listingId,
+            scanStatus: listingImages.scanStatus
+          })
           .from(listingImages)
           .where(inArray(listingImages.listingId, listingIds))
       : [];
@@ -42,6 +60,7 @@ export async function listListingReviewQueue() {
     listingIds.length > 0
       ? await db
           .select({
+            id: listingDocuments.id,
             listingId: listingDocuments.listingId,
             kind: listingDocuments.kind,
             scanStatus: listingDocuments.scanStatus
@@ -53,6 +72,7 @@ export async function listListingReviewQueue() {
   return rows.map((row) => ({
     ...row,
     imageCount: images.filter((image) => image.listingId === row.id).length,
+    images: images.filter((image) => image.listingId === row.id),
     documents: documents.filter((document) => document.listingId === row.id)
   }));
 }

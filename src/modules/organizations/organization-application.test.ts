@@ -7,10 +7,8 @@ import {
 
 const validApplication = {
   type: "PHARMACY",
-  legalName: "Sentetik Eczane Ltd.",
   taxNumber: "1234567890",
   authorizedPersonName: "Ayse Yilmaz",
-  authorizedPersonTitle: "Eczaci",
   ownerIdentityNumber: "12345678901",
   email: "basvuru@example.invalid",
   password: "very-secure-password",
@@ -18,14 +16,16 @@ const validApplication = {
   province: "Istanbul",
   district: "Kadikoy",
   address: "Sentetik Mahallesi Test Caddesi No: 1",
-  licenseNumber: "SYN-12345",
-  professionalChamber: "Sentetik Eczaci Odasi",
-  invoiceTitle: "Sentetik Eczane Ltd.",
   kvkkAccepted: true,
   termsAccepted: true
 } as const;
 
 describe("organization application", () => {
+  it("accepts the simplified form without retired fields and requires an address", () => {
+    const input = validApplication;
+    expect(validateOrganizationApplication(input).email).toBe(input.email);
+    expect(() => validateOrganizationApplication({ ...input, address: "" })).toThrow();
+  });
   it("validates required registration fields", () => {
     expect(validateOrganizationApplication(validApplication)).toMatchObject({
       type: "PHARMACY",
@@ -41,14 +41,14 @@ describe("organization application", () => {
   });
 
   it("creates privacy-safe audit summaries", () => {
-    expect(toSafeApplicationAuditSummary(validateOrganizationApplication(validApplication))).toEqual({
+    expect(
+      toSafeApplicationAuditSummary(validateOrganizationApplication(validApplication))
+    ).toEqual({
       type: "PHARMACY",
       province: "Istanbul",
       district: "Kadikoy",
       emailDomain: "example.invalid",
-      hasLicenseNumber: true,
       hasOwnerIdentityNumber: true,
-      hasProfessionalChamber: true,
       kvkkAccepted: true,
       termsAccepted: true
     });

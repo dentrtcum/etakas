@@ -37,10 +37,8 @@ export async function POST(request: NextRequest) {
   try {
     const application = validateOrganizationApplication({
       type: getString(formData, "type"),
-      legalName: getString(formData, "legalName"),
       taxNumber: getString(formData, "taxNumber"),
       authorizedPersonName: getString(formData, "authorizedPersonName"),
-      authorizedPersonTitle: getString(formData, "authorizedPersonTitle"),
       ownerIdentityNumber: getString(formData, "ownerIdentityNumber"),
       email: getString(formData, "email"),
       password: getString(formData, "password"),
@@ -48,9 +46,6 @@ export async function POST(request: NextRequest) {
       province: getString(formData, "province"),
       district: getString(formData, "district"),
       address: getString(formData, "address"),
-      licenseNumber: getString(formData, "licenseNumber"),
-      professionalChamber: getString(formData, "professionalChamber"),
-      invoiceTitle: getString(formData, "legalName"),
       kvkkAccepted: formData.get("kvkkAccepted") === "on",
       termsAccepted: formData.get("termsAccepted") === "on"
     });
@@ -58,9 +53,12 @@ export async function POST(request: NextRequest) {
     const result = await submitOrganizationApplication(application, collectDocuments(formData));
 
     if (request.headers.get("accept")?.includes("text/html")) {
-      return NextResponse.redirect(new URL(`/isletme-kaydi/basarili?id=${result.id}`, request.url), {
-        status: 303
-      });
+      return NextResponse.redirect(
+        new URL(`/isletme-kaydi/basarili?id=${result.id}`, request.url),
+        {
+          status: 303
+        }
+      );
     }
 
     return NextResponse.json(
@@ -72,6 +70,9 @@ export async function POST(request: NextRequest) {
       { status: 202 }
     );
   } catch (error) {
+    if (error instanceof Error && error.message === "EMAIL_ALREADY_REGISTERED") {
+      return NextResponse.json({ error: "EMAIL_ALREADY_REGISTERED" }, { status: 409 });
+    }
     if (error instanceof ZodError) {
       return NextResponse.json({ error: "INVALID_ORGANIZATION_APPLICATION" }, { status: 400 });
     }
