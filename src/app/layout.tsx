@@ -23,8 +23,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               <Link href="/panel">Hesabım</Link>
             </nav>
             <div className="header-actions">
-              <Link className="button button-secondary" href="/giris">
-                Giriş yap
+              <Link className="button button-secondary" href="/panel">
+                Panele git
               </Link>
               <Link className="button button-primary" href="/isletme-kaydi">
                 İşletme kaydı
