@@ -11,13 +11,13 @@ import {
 } from "@/lib/auth/challenges";
 import {
   applicationOrigin,
-  requireSameOrigin,
+  requireSameOriginForm,
   securityErrorResponse
 } from "@/lib/security/request-guards";
 export const runtime = "nodejs";
 export async function POST(request: Request) {
   try {
-    requireSameOrigin(request);
+    requireSameOriginForm(request);
     await clearAppSessionCookie();
     const cookieStore = await cookies();
     const challenge = parseChallengeToken(cookieStore.get(challengeCookieName)?.value);
@@ -33,6 +33,12 @@ export async function POST(request: Request) {
           )
         );
     cookieStore.delete(challengeCookieName);
+    if (request.headers.get("accept")?.includes("application/json")) {
+      return NextResponse.json(
+        { ok: true, redirectTo: "/giris" },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+    }
     return NextResponse.redirect(new URL("/giris", applicationOrigin()), {
       status: 303,
       headers: { "Cache-Control": "no-store" }

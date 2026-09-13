@@ -3,6 +3,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { Brand } from "@/components/ui";
 import { CookiePreferences } from "@/components/cookie-preferences";
+import { LogoutForm } from "@/components/logout-form";
 import { getCurrentAppUser } from "@/lib/auth/current-user";
 import { legalLinks } from "@/lib/legal/documents";
 import { legalOperator } from "@/lib/legal/config";
@@ -26,11 +27,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <div className="header-inner">
             <Brand />
             {user ? (
-              <form action="/api/session/logout" method="post">
-                <button className="button button-secondary" type="submit">
-                  Çıkış yap
-                </button>
-              </form>
+              <LogoutForm />
             ) : (
               <>
                 <nav className="main-nav" aria-label="Ana menü">

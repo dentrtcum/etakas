@@ -6,7 +6,10 @@ Son güncelleme: 13 Eylül 2026. Bu dosya kesinti sonrası devam noktasıdır.
 
 - [x] Güvenlik/tasarım sürümü `bbea95e` GitHub main ve Vercel Production'a yayınlandı; güvenli tanılama `67a321d` ile eklendi. `EMAIL_PROVIDER` Production'da `gmail` olarak ayarlandı.
 - [x] Son 503 hatası logda `rate-limit` aşamasında bulundu. Ham SQL'de Date parametresi gerçek Neon bağlantısında `ERR_INVALID_ARG_TYPE` ile yeniden üretildi; ISO metniyle sorgu başarılı oldu, tanılama transaction'ı geri alındı. Regresyon testi (13 güvenlik testi), typecheck ve ilgili ESLint geçti.
-- [ ] Rate-limit tarih düzeltmesinin yayını ve canlı API kontrolü; ardından gerçek CAPTCHA/e-posta tesliminin kullanıcı tarafından tamamlanması bekleniyor. Önceki EMAIL_PROVIDER kesin kök neden iddiası doğrulanmamıştı; mevcut kanıt tarih aktarım hatasıdır.
+- [x] Rate-limit tarih düzeltmesi `2312ce9` ile yayınlandı; Vercel `dpl_F6XFSPe2Q8mtr2iisYkYRPdiCVg9` READY, alias `etakas.vercel.app`. Canlı API'ye CAPTCHA'sız tanılama isteği `400 CAPTCHA_REQUIRED` döndürdü: sayaç/DB aşaması geçti, CAPTCHA koruması çalıştı.
+- [x] Kullanıcı gerçek Turnstile doğrulamasının geçtiğini, Gmail parola yenileme bağlantısının ve giriş doğrulama kodlarının ulaştığını, parola değiştirmenin çalıştığını doğruladı.
+- [x] Çıkışta ham `403 INVALID_ORIGIN` sayfası açılması Vercel logunda doğrulandı. Çıkış formu güvenli istemci isteğine geçirildi; API JSON/303 yanıtlarını destekliyor ve originsiz klasik form yedeği yalnızca `sec-fetch-site=same-origin` ile kanonik origin eşleştiğinde kabul ediliyor. 28 dosya / 123 test, typecheck, lint ve build geçti.
+- [ ] Çıkış düzeltmesinin üretime yayını ve oturumlu gerçek tarayıcı doğrulaması bekleniyor.
 
 - [x] Neon bağlantısı ve önceki dört migration'ın dosya özetleri doğrulandı.
 - [x] `pg_dump` ile migration öncesi yedek alındı; `pg_restore --list` ve SHA-256 kontrolü başarılı. Gerçek geri yükleme provası yapılmadı.

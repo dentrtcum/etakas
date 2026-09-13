@@ -242,6 +242,23 @@ button {
 .button-secondary:hover {
   background: #edf3ed;
 }
+.logout-form {
+  position: relative;
+}
+.logout-error {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  width: min(310px, calc(100vw - 40px));
+  padding: 10px 12px;
+  border: 1px solid #f0d4cf;
+  border-radius: 10px;
+  background: #fff1ef;
+  color: #a54136;
+  font-size: 0.82rem;
+  box-shadow: 0 10px 30px rgb(17 38 34 / 10%);
+}
 .panel-card {
   border: 1px solid var(--line);
   border-radius: 15px;

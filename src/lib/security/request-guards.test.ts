@@ -6,6 +6,7 @@ import {
   requireCaptcha,
   requireRateLimit,
   requireSameOrigin,
+  requireSameOriginForm,
   safeNextPath,
   securityErrorResponse,
   SecurityError,
@@ -46,6 +47,29 @@ describe("request trust boundaries", () => {
         })
       )
     ).not.toThrow();
+  });
+
+  it("allows an origin-less native form only with same-origin fetch metadata", () => {
+    expect(() =>
+      requireSameOriginForm(
+        new Request("https://etakas.example/api/session/logout", {
+          method: "POST",
+          headers: { "sec-fetch-site": "same-origin" }
+        })
+      )
+    ).not.toThrow();
+    const rejectedHeaders: Record<string, string>[] = [
+      {},
+      { "sec-fetch-site": "cross-site" },
+      { origin: "https://evil.example", "sec-fetch-site": "same-origin" }
+    ];
+    for (const headers of rejectedHeaders) {
+      expect(() =>
+        requireSameOriginForm(
+          new Request("https://etakas.example/api/session/logout", { method: "POST", headers })
+        )
+      ).toThrow("INVALID_ORIGIN");
+    }
   });
 
   it("does not accept external or ambiguous post-login redirects", () => {
