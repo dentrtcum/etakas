@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { PgDialect } from "drizzle-orm/pg-core";
 import {
   applicationOrigin,
   readSecurityForm,
@@ -92,6 +93,19 @@ describe("request trust boundaries", () => {
 });
 
 describe("bounded form parsing and throttling", () => {
+  it("serializes raw SQL timestamps for the postgres-js driver", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-08T12:00:05Z"));
+    await requireRateLimit({
+      request: new Request("https://etakas.example"),
+      action: "reset",
+      windowSeconds: 60
+    });
+    const query = new PgDialect().sqlToQuery(mocks.execute.mock.calls[0][0]);
+    expect(query.params).toContain("2026-09-08T12:01:00.000Z");
+    expect(query.params.some((value) => value instanceof Date)).toBe(false);
+  });
+
   it("checks actual streamed bytes when Content-Length is absent or dishonest", async () => {
     for (const length of [undefined, "1"]) {
       const headers: Record<string, string> = {

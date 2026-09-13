@@ -4,13 +4,17 @@ Son güncelleme: 13 Eylül 2026. Bu dosya kesinti sonrası devam noktasıdır.
 
 ## Güncel durum — 13 Eylül
 
+- [x] Güvenlik/tasarım sürümü `bbea95e` GitHub main ve Vercel Production'a yayınlandı; güvenli tanılama `67a321d` ile eklendi. `EMAIL_PROVIDER` Production'da `gmail` olarak ayarlandı.
+- [x] Son 503 hatası logda `rate-limit` aşamasında bulundu. Ham SQL'de Date parametresi gerçek Neon bağlantısında `ERR_INVALID_ARG_TYPE` ile yeniden üretildi; ISO metniyle sorgu başarılı oldu, tanılama transaction'ı geri alındı. Regresyon testi (13 güvenlik testi), typecheck ve ilgili ESLint geçti.
+- [ ] Rate-limit tarih düzeltmesinin yayını ve canlı API kontrolü; ardından gerçek CAPTCHA/e-posta tesliminin kullanıcı tarafından tamamlanması bekleniyor. Önceki EMAIL_PROVIDER kesin kök neden iddiası doğrulanmamıştı; mevcut kanıt tarih aktarım hatasıdır.
+
 - [x] Neon bağlantısı ve önceki dört migration'ın dosya özetleri doğrulandı.
 - [x] `pg_dump` ile migration öncesi yedek alındı; `pg_restore --list` ve SHA-256 kontrolü başarılı. Gerçek geri yükleme provası yapılmadı.
 - [x] `0005_security_auth` canlı Neon veritabanına tek transaction içinde uygulandı ve bağımsız bağlantıyla yeniden doğrulandı. Eski oturumlar kapandı; kullanıcı/parola ve işletme/ürün kayıtları korundu.
 - [x] Kullanıcının yenilediği Gmail uygulama şifresiyle TLS üzerinden SMTP kimlik doğrulaması başarılı. Gerçek e-posta gönderilmedi; teslim ve Vercel çalışma zamanından gönderim ayrıca doğrulanmalı.
 - [x] Gmail adresi ve CAPTCHA anahtarlarının varlık/biçim kontrolleri başarılı. Son Vercel Production kontrolünde Gmail, CAPTCHA ve `AUTH_RATE_LIMIT_SECRET` değişkenleri mevcut.
 - [ ] CAPTCHA'nın gerçek tarayıcı token'ı ve hostname/action doğrulaması canlı akışta henüz yapılmadı.
-- [ ] Yeni uygulama sürümü henüz dağıtılmadı. Hukuki metin incelemesi, gerçek kabul testleri ve dağıtım bekliyor.
+- [x] Yeni uygulama sürümü dağıtıldı. Hukuki metin incelemesi ve tam kabul testleri bekliyor.
 
 Ayrıntılar: [MIGRATION-0005-REPORT.md](docs/MIGRATION-0005-REPORT.md). Aşağıdaki eski servis notları tarihsel kayıttır; güncel durum için bu bölüm esas alınmalıdır.
 

@@ -90,7 +90,7 @@ export async function requireRateLimit({
   const db = getDb();
   for (const key of keys) {
     const rows = await db.execute(sql`INSERT INTO rate_limit_buckets (key, count, expires_at)
-      VALUES (${key}, 1, ${expiresAt}) ON CONFLICT (key)
+      VALUES (${key}, 1, ${expiresAt.toISOString()}) ON CONFLICT (key)
       DO UPDATE SET count = LEAST(rate_limit_buckets.count + 1, ${limit + 1}) RETURNING count`);
     if (Number(rows[0]?.count) > limit)
       throw new SecurityError(
