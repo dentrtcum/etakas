@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { passwordPolicySchema } from "@/lib/auth/password";
+import { LEGAL_VERSION } from "@/lib/legal/version";
 
 export const organizationApplicationSchema = z.object({
   type: z.enum(["PHARMACY", "VETERINARY_CLINIC", "VETERINARY_POLYCLINIC", "ANIMAL_HOSPITAL"]),
@@ -9,13 +11,14 @@ export const organizationApplicationSchema = z.object({
     .trim()
     .regex(/^\d{11}$/),
   email: z.string().trim().email().max(320),
-  password: z.string().min(8).max(160),
+  password: passwordPolicySchema,
   phone: z.string().trim().min(10).max(32),
   province: z.string().trim().min(2).max(80),
   district: z.string().trim().min(2).max(80),
   address: z.string().trim().min(10).max(500),
-  kvkkAccepted: z.literal(true),
-  termsAccepted: z.literal(true)
+  privacyAcknowledged: z.literal(true),
+  termsAccepted: z.literal(true),
+  legalVersion: z.literal(LEGAL_VERSION)
 });
 
 export type OrganizationApplication = z.output<typeof organizationApplicationSchema>;
@@ -44,7 +47,8 @@ export function toSafeApplicationAuditSummary(application: OrganizationApplicati
     district: application.district,
     emailDomain: application.email.split("@")[1] ?? "unknown",
     hasOwnerIdentityNumber: application.ownerIdentityNumber.length === 11,
-    kvkkAccepted: application.kvkkAccepted,
-    termsAccepted: application.termsAccepted
+    privacyAcknowledged: application.privacyAcknowledged,
+    termsAccepted: application.termsAccepted,
+    legalVersion: application.legalVersion
   };
 }

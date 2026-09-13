@@ -5,6 +5,8 @@ import { PageHeading, EmptyState, formatValue, formatDate, StatusBadge } from "@
 import { SubmitForm } from "@/components/submit-form";
 import { getAccountContext, readPage } from "@/modules/organizations/account-queries";
 import { listMarketplaceListingsForOrganization } from "@/modules/marketplace/marketplace-queries";
+import { requireOrganizationAccess } from "@/lib/auth/authorization";
+import { isLiveTradingEnabled } from "@/modules/compliance/live-trading";
 export default async function MarketplacePage({
   searchParams
 }: {
@@ -27,9 +29,19 @@ export default async function MarketplacePage({
       </main>
     );
   const rows = await listMarketplaceListingsForOrganization(organization.id, q, page);
-  const canOrder = actor.roles.some((role) =>
-    ["ORGANIZATION_OWNER", "ORGANIZATION_MANAGER", "ORDER_MANAGER"].includes(role)
-  );
+  const tradingEnabled = isLiveTradingEnabled();
+  const canOrder =
+    tradingEnabled &&
+    requireOrganizationAccess(actor, organization.id, [
+      "ORGANIZATION_OWNER",
+      "ORGANIZATION_MANAGER",
+      "ORDER_MANAGER"
+    ]).allowed;
+  const canList = requireOrganizationAccess(actor, organization.id, [
+    "ORGANIZATION_OWNER",
+    "ORGANIZATION_MANAGER",
+    "INVENTORY_MANAGER"
+  ]).allowed;
   return (
     <main className="page-container">
       <PageHeading
@@ -37,11 +49,22 @@ export default async function MarketplacePage({
         title="Pazar yeri"
         description="İşletmenize uygun ürünleri bulun. Kendi ilanlarınız bu listede gösterilmez."
         action={
-          <Link href="/ilan-olustur" className="button button-primary">
-            + Yeni ilan
-          </Link>
+          canList ? (
+            <Link href="/ilan-olustur" className="button button-primary">
+              + Yeni ilan
+            </Link>
+          ) : undefined
         }
       />
+      {!tradingEnabled && (
+        <p className="notice">
+          Platform hazırlık aşamasındadır. Gerçek ürün devri ve sipariş rezervasyonu, gerekli
+          kontroller tamamlanana kadar kapalıdır.{" "}
+          <Link href="/hukuki/platform-kurallari" className="underline">
+            Platform kurallarını inceleyin.
+          </Link>
+        </p>
+      )}
       <form method="get" className="filter-bar">
         <label className="sr-only" htmlFor="product-search">
           Ürün adı veya barkod
@@ -126,7 +149,7 @@ export default async function MarketplacePage({
               ? "Farklı bir ürün adı veya barkodla tekrar arayın."
               : "Diğer onaylı işletmeler ilan yayınladığında bu alanda görünecek. Siz de kendi stoklarınızı paylaşabilirsiniz."
           }
-          href={q ? "/pazar-yeri" : "/ilan-olustur"}
+          href={q ? "/pazar-yeri" : canList ? "/ilan-olustur" : undefined}
           label={q ? "Tüm ilanları göster" : "İlan oluştur"}
         />
       )}

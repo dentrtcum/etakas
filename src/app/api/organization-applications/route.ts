@@ -1,6 +1,16 @@
+import { mutationRoute } from "@/lib/http/mutation";
 import { NextResponse, type NextRequest } from "next/server";
 import { ZodError } from "zod";
 import { isProvidedFile } from "@/lib/storage/blob-storage";
+import {
+  requireCaptcha,
+  requireRateLimit,
+  securityHash,
+  trustedClientIp,
+  SecurityError
+} from "@/lib/security/request-guards";
+import { getLegalReadiness } from "@/lib/legal/config";
+import { requireEmailConfigured } from "@/lib/email/send";
 import {
   toSafeApplicationAuditSummary,
   validateOrganizationApplication
@@ -31,10 +41,20 @@ function collectDocuments(formData: FormData) {
   });
 }
 
-export async function POST(request: NextRequest) {
+async function handlePost(request: NextRequest) {
   const formData = await request.formData();
 
   try {
+    requireEmailConfigured();
+    if (!getLegalReadiness().isReady) throw new SecurityError("LEGAL_CONTENT_NOT_READY", 503);
+    await requireRateLimit({
+      request,
+      action: "registration",
+      identifier: getString(formData, "email"),
+      limit: 5,
+      windowSeconds: 3600
+    });
+    await requireCaptcha(request, formData.get("cf-turnstile-response"), "register");
     const application = validateOrganizationApplication({
       type: getString(formData, "type"),
       taxNumber: getString(formData, "taxNumber"),
@@ -46,11 +66,16 @@ export async function POST(request: NextRequest) {
       province: getString(formData, "province"),
       district: getString(formData, "district"),
       address: getString(formData, "address"),
-      kvkkAccepted: formData.get("kvkkAccepted") === "on",
-      termsAccepted: formData.get("termsAccepted") === "on"
+      privacyAcknowledged: formData.get("privacyAcknowledged") === "on",
+      termsAccepted: formData.get("termsAccepted") === "on",
+      legalVersion: getString(formData, "legalVersion")
     });
 
-    const result = await submitOrganizationApplication(application, collectDocuments(formData));
+    const result = await submitOrganizationApplication(
+      application,
+      collectDocuments(formData),
+      securityHash(`legal:${trustedClientIp(request)}`)
+    );
 
     if (request.headers.get("accept")?.includes("text/html")) {
       return NextResponse.redirect(
@@ -84,3 +109,5 @@ export async function POST(request: NextRequest) {
     throw error;
   }
 }
+
+export const POST = mutationRoute("src/app/api/organization-applications", handlePost);

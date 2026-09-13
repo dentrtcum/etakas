@@ -3,6 +3,18 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { LoaderCircle, CircleAlert, CheckCircle2 } from "lucide-react";
 const errors: Record<string, string> = {
+  INVALID_ORIGIN: "Güvenlik doğrulaması başarısız. Sayfayı yenileyip tekrar deneyin.",
+  RATE_LIMITED: "Kısa sürede çok fazla işlem yaptınız. Bir süre bekleyip tekrar deneyin.",
+  CAPTCHA_REQUIRED: "Lütfen güvenlik doğrulamasını tamamlayın.",
+  CAPTCHA_FAILED: "Güvenlik doğrulaması geçersiz veya süresi dolmuş. Yeniden tamamlayın.",
+  SERVICE_UNAVAILABLE: "Hizmet şu anda kullanılamıyor. Lütfen daha sonra tekrar deneyin.",
+  LEGAL_CONTENT_NOT_READY: "Başvurular henüz açılmadı. Lütfen daha sonra tekrar deneyin.",
+  TRADING_NOT_ENABLED: "Gerçek takas işlemleri hazırlık aşaması tamamlanana kadar kapalıdır.",
+  INVALID_FILE_TYPE: "Yalnızca JPEG, PNG, WebP görseli veya PDF belgesi yükleyin.",
+  INVALID_IMAGE: "Görsel okunamadı veya boyutları çok büyük. Farklı bir görsel seçin.",
+  INVALID_FILE_SIZE: "Belgelerin toplam boyutu 4 MB sınırını aşmamalıdır.",
+  DOCUMENT_LIMIT_REACHED: "Belge sınırına ulaşıldı. Lütfen destek ile iletişime geçin.",
+  "Listing images are required.": "Ürün ve ambalaj görsellerini ekleyin.",
   UNAUTHENTICATED: "Devam etmek için giriş yapın.",
   FORBIDDEN: "Bu işlem için yetkiniz bulunmuyor.",
   INVALID_ORGANIZATION_APPLICATION:
@@ -48,7 +60,8 @@ export function SubmitForm({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     setError("");
     setSuccess(false);
     const bytes = [...data.values()].reduce((sum, v) => sum + (v instanceof File ? v.size : 0), 0);
@@ -80,12 +93,14 @@ export function SubmitForm({
       setError(e instanceof Error ? e.message : "Bağlantı kurulamadı. Lütfen tekrar deneyin.");
     } finally {
       setPending(false);
+      form.dispatchEvent(new Event("captcha-reset"));
     }
   }
   return (
     <form
       onSubmit={submit}
       className={className}
+      aria-busy={pending}
       encType={json ? undefined : "multipart/form-data"}
     >
       <fieldset disabled={pending} className="form-fields">

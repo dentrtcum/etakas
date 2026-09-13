@@ -1,92 +1,46 @@
-# E-Takas
+# Etakas
 
-E-Takas, Türkiye'de doğrulanmış eczaneler ve veteriner klinikleri için tasarlanan kapalı devre B2B ilaç takas koordinasyon platformudur.
+Etakas, işletme başvuruları, stok ilanları ve işletmeler arası işlem kayıtları için geliştirilen Next.js uygulamasıdır. İşleten: Sabot Yazılım. Hedef barındırma Vercel, ilişkisel veri deposu Neon PostgreSQL, özel dosya deposu Vercel Blob'dur.
 
-Bu repo varsayılan olarak yalnızca demo modunda çalışır. Gerçek takas işlemleri hukuki onay kaydı olmadan üretimde etkinleştirilemez.
+Gerçek ilaç takası varsayılan olarak kapalıdır. Hukuki metinlerin bulunması veya bir ortam değişkeninin açılması, iş modeline resmî izin verildiği anlamına gelmez.
 
-## Komutlar
+## Çalışmanın durumu
+
+Tamamlanan işler, kalan adımlar ve son kontroller [PROGRESSION.md](PROGRESSION.md) dosyasında tutulur. Çalışma dizinindeki güvenlik değişiklikleri ile canlı site aynı sürüm kabul edilmemelidir; dağıtım durumu bu kayıttan kontrol edilmelidir. Gerçek e-posta, CAPTCHA ve uçtan uca kullanıcı testleri kullanıcının isteğiyle sonraki aşamaya bırakılmıştır.
+
+## Yerel geliştirme
+
+Node.js `>=22 <25` kullanın. `.env.example` dosyasını inceleyin; sırları `.env.local` veya Vercel ortam değişkenlerinde tutun.
 
 ```bash
-npm install
-npm run db:migrate
-npm run db:seed
-npm run db:bootstrap-admin
+npm ci
 npm run dev
+```
+
+```bash
 npm run lint
 npm run typecheck
 npm run test
-npm run test:e2e
 npm run build
 ```
 
-## Vercel ve Veritabanı Kurulumu
+Veritabanı komutları hedef bağlantıda değişiklik yapar. `npm run db:migrate` öncesinde hedefi ve yedeği doğrulayın. `npm run db:seed` sentetik veri üretir ve yalnızca yerel veritabanına izin verir. `npm run db:bootstrap-admin` ilk süper yöneticiyi oluşturmak içindir; olağan parola kurtarma aracı olarak kullanılmaz.
 
-Vercel deploy sonrası `/kurulum` sayfası ve `/api/setup/status` endpointi şu durumları gösterir:
+## Erişim ve başvuru
 
-- Vercel environment variable eksikleri
-- PostgreSQL bağlantısı
-- Migration tabloları
-- Super admin kullanıcısı
+- `/giris`: İşletme ve süper admin için parola ardından her girişte e-posta kodu.
+- `/parolami-unuttum`: E-postayla tek kullanımlık parola kurtarma bağlantısı.
+- `/isletme-kaydi`: İşletme başvurusu. Açık adres zorunludur; belge yüklemek isteğe bağlıdır ve önerilir. Kayıt yönetici rolü vermez.
+- `/panel`, `/ilanlarim`, `/siparisler`, `/hesabim`: İşletmeye ve üyelik rolüne bağlı alanlar.
+- `/admin36100`: Yalnızca sunucuda `SUPER_ADMIN` rolü doğrulanan kullanıcıya açık yönetim alanı. Yol adının bilinmemesi bir güvenlik kontrolü değildir.
+- `/hukuki` ve `/sss`: Hukuki metinler, iletişim, platform sınırları ve sık sorulan sorular.
 
-Minimum production env değerleri:
+## Yayına hazırlık
 
-```env
-DATABASE_URL=
-AUTH_SECRET=
-APP_URL=
-ENCRYPTION_KEY=
-TRADING_MODE=demo
-LEGAL_APPROVAL_CONFIRMED=false
-INITIAL_ADMIN_EMAIL=
-INITIAL_ADMIN_PASSWORD=
-```
+Önce [dağıtım sırasını](docs/DEPLOYMENT.md), [e-posta kurulumunu](docs/EMAIL-SETUP.md) ve [yayın kontrol listesini](docs/PRE-PRODUCTION-CHECKLIST.md) izleyin. `0005_security_auth.sql` yeni oturum/doğrulama tablolarını ve alanlarını içerir; yeni koddan önce uygulanmalıdır ve mevcut oturumları kapatır.
 
-## Güvenli Varsayılanlar
+Gmail geçici gönderici olarak desteklenir; özel alan adı zorunlu değildir. Gmail hesap parolası kullanılmaz: iki adımlı doğrulama ile oluşturulan ayrı uygulama şifresi gerekir. Alan adı edinildiğinde Resend seçilebilir.
 
-- `.env` dosyaları Git'e eklenmez.
-- `.env.example` yalnızca boş veya sahte değerler içerir.
-- `TRADING_MODE=demo` ve `LEGAL_APPROVAL_CONFIRMED=false` varsayılandır.
-- Production ortamında eksik güvenlik değişkenleri uygulamayı güvenli olmayan şekilde başlatmaz.
-- `npm run db:seed` yalnızca sentetik demo verileri üretir ve production ortamında çalışmaz.
-- `npm run db:bootstrap-admin` production için `INITIAL_ADMIN_EMAIL` ve `INITIAL_ADMIN_PASSWORD` ile ilk super admin kullanıcısını oluşturur veya parolasını günceller.
+Yeni parolalar 12–128 karakter olmalıdır ve zayıf parola kontrolünden geçmelidir. Eski kısa parolası olan hesaplar e-posta üzerinden parola yenilemeden yeni sürümde giriş yapamaz. E-posta hizmeti yapılandırılmadan canlı sürümü değiştirmek bu hesapları erişimsiz bırakabilir.
 
-## Demo Kullanıcıları
-
-`npm run db:seed` sonrasında local/demo ortamında kullanılabilecek sentetik hesaplar:
-
-- `admin@example.invalid` / `AdminDemo123!`
-- `superadmin@example.invalid` / `SuperAdminDemo123!`
-- `eczane@example.invalid` / `EczaneDemo123!`
-- `klinik@example.invalid` / `KlinikDemo123!`
-
-## Phase 3 Başlangıç Akışları
-
-- Auth endpointleri: `/api/auth/[...all]`
-- Giriş ekranı: `/giris`
-- İşletme başvurusu: `/isletme-kaydi`
-- Admin panel başlangıcı: `/admin36100`
-- İlan oluşturma başlangıcı: `/ilan-olustur`
-- İşletme çalışma alanı: `/panel`
-- İlan takibi: `/ilanlarim`
-- Sipariş ve teslim takibi: `/siparisler`
-- İşletme ve bakiye bilgileri: `/hesabim`
-
-İşletme başvurusunda temel iletişim, vergi, kimlik ve açık adres bilgileri alınır. Açık adres
-zorunludur; ruhsat, vergi levhası, kimlik, diploma, oda kaydı ve yetki belgeleri isteğe bağlıdır
-ve incelemeyi kolaylaştırmak için önerilir.
-
-## Ürün ve İlan Akışı
-
-- İşletme ilanları `/api/listings` üzerinden `PENDING_REVIEW` durumuyla admin incelemesine gönderilir.
-- Admin ilan kararları `/api/admin/listing-reviews` veya `/admin36100` paneli üzerinden verilir.
-- Soğuk zincir, biyolojik ve standart dışı kontrol kategorileri varsayılan olarak ilana kapalıdır.
-
-## Marketplace ve Sipariş
-
-- Marketplace API: `/api/marketplace/listings?organizationId=...`
-- Sipariş rezervasyonu: `POST /api/orders`
-- Teslim beyanı: `POST /api/orders/:orderId/handover`
-- İptal: `POST /api/orders/:orderId/cancel`
-- Tamamlama: `POST /api/orders/:orderId/complete`
-- Satıcı teslim beyanı sonrası alıcı teslimi onaylar; otomatik tamamlama yoktur.
-- İtiraz ve iade işlemleri admin panelindeki sipariş bölümü üzerinden yürütülür.
+Mimari ve sınırlar: [ARCHITECTURE](docs/ARCHITECTURE.md), [SECURITY-CHECKLIST](docs/SECURITY-CHECKLIST.md), [THREAT-MODEL](docs/THREAT-MODEL.md), [DEPENDENCY-AUDIT](docs/DEPENDENCY-AUDIT.md).

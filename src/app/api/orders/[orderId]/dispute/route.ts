@@ -1,3 +1,4 @@
+import { mutationRoute } from "@/lib/http/mutation";
 import { NextResponse, type NextRequest } from "next/server";
 import { z, ZodError } from "zod";
 import { getCurrentAppUser } from "@/lib/auth/current-user";
@@ -9,7 +10,7 @@ const disputeSchema = z.object({
   reason: z.string().trim().min(10)
 });
 
-export async function POST(request: NextRequest, context: { params: Promise<{ orderId: string }> }) {
+async function handlePost(request: NextRequest, context: { params: Promise<{ orderId: string }> }) {
   const actor = await getCurrentAppUser();
 
   if (!actor) {
@@ -18,7 +19,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
 
   try {
     const input = disputeSchema.parse(await request.json());
-    return NextResponse.json(await openOrderDispute(actor, (await context.params).orderId, input.reason));
+    return NextResponse.json(
+      await openOrderDispute(actor, (await context.params).orderId, input.reason)
+    );
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json({ error: "INVALID_DISPUTE" }, { status: 400 });
@@ -31,3 +34,5 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
     throw error;
   }
 }
+
+export const POST = mutationRoute("src/app/api/orders/[orderId]/dispute", handlePost);

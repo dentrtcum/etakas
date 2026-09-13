@@ -3,6 +3,8 @@ import { PageHeading, EmptyState, StatusBadge, formatValue, formatDate } from "@
 import { SubmitForm } from "@/components/submit-form";
 import { getAccountContext, readPage } from "@/modules/organizations/account-queries";
 import { listOrganizationOrders } from "@/modules/orders/order-queries";
+import { requireOrganizationAccess } from "@/lib/auth/authorization";
+import { isLiveTradingEnabled } from "@/modules/compliance/live-trading";
 export default async function OrdersPage({
   searchParams
 }: {
@@ -11,9 +13,15 @@ export default async function OrdersPage({
   const { actor, organization } = await getAccountContext();
   const page = readPage((await searchParams).page);
   const rows = organization ? await listOrganizationOrders(organization.id, page) : [];
-  const canManage = actor.roles.some((role) =>
-    ["ORGANIZATION_OWNER", "ORGANIZATION_MANAGER", "ORDER_MANAGER"].includes(role)
+  const canManage = Boolean(
+    organization &&
+    requireOrganizationAccess(actor, organization.id, [
+      "ORGANIZATION_OWNER",
+      "ORGANIZATION_MANAGER",
+      "ORDER_MANAGER"
+    ]).allowed
   );
+  const canTransfer = canManage && organization?.status === "APPROVED" && isLiveTradingEnabled();
   return (
     <main className="page-container">
       <PageHeading
@@ -48,7 +56,7 @@ export default async function OrdersPage({
                 </div>
                 {canManage && (
                   <div className="flex flex-wrap gap-4 mt-5">
-                    {!isBuyer && initial && (
+                    {canTransfer && !isBuyer && initial && (
                       <SubmitForm
                         endpoint={`/api/orders/${row.id}/handover`}
                         json
@@ -56,7 +64,7 @@ export default async function OrdersPage({
                         successMessage="Teslim bildirimi alındı. Alıcı onayı bekleniyor."
                       />
                     )}
-                    {isBuyer && row.status === "BUYER_CONFIRMATION_PENDING" && (
+                    {canTransfer && isBuyer && row.status === "BUYER_CONFIRMATION_PENDING" && (
                       <SubmitForm
                         endpoint={`/api/orders/${row.id}/complete`}
                         json
@@ -72,26 +80,33 @@ export default async function OrdersPage({
                     )}
                   </div>
                 )}
-                {!["CANCELLED", "COMPLETED", "EXPIRED", "DISPUTED", "ADMIN_FROZEN"].includes(
-                  row.status
-                ) && (
-                  <details className="mt-3 border-t border-[var(--line)] pt-4">
-                    <summary className="text-xs text-[var(--muted)]">
-                      Bir sorun mu var? İtiraz bildir
-                    </summary>
-                    <SubmitForm
-                      className="mt-4"
-                      endpoint={`/api/orders/${row.id}/dispute`}
-                      json
-                      label="İtirazı gönder"
-                    >
-                      <label>
-                        Açıklama
-                        <textarea name="reason" required minLength={10} maxLength={2000} rows={3} />
-                      </label>
-                    </SubmitForm>
-                  </details>
-                )}
+                {canManage &&
+                  !["CANCELLED", "COMPLETED", "EXPIRED", "DISPUTED", "ADMIN_FROZEN"].includes(
+                    row.status
+                  ) && (
+                    <details className="mt-3 border-t border-[var(--line)] pt-4">
+                      <summary className="text-xs text-[var(--muted)]">
+                        Bir sorun mu var? İtiraz bildir
+                      </summary>
+                      <SubmitForm
+                        className="mt-4"
+                        endpoint={`/api/orders/${row.id}/dispute`}
+                        json
+                        label="İtirazı gönder"
+                      >
+                        <label>
+                          Açıklama
+                          <textarea
+                            name="reason"
+                            required
+                            minLength={10}
+                            maxLength={2000}
+                            rows={3}
+                          />
+                        </label>
+                      </SubmitForm>
+                    </details>
+                  )}
                 {["DISPUTED", "ADMIN_FROZEN"].includes(row.status) && (
                   <p className="notice">
                     Bu işlem yönetici incelemesinde. Karar verilene kadar tamamlanamaz.

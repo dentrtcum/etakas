@@ -1,3 +1,4 @@
+import { mutationRoute } from "@/lib/http/mutation";
 import { NextResponse, type NextRequest } from "next/server";
 import { ZodError } from "zod";
 import { getCurrentAppUser } from "@/lib/auth/current-user";
@@ -6,7 +7,7 @@ import { createOrderReservation, OrderFlowError } from "@/modules/orders/order-s
 
 export const runtime = "nodejs";
 
-export async function POST(request: NextRequest) {
+async function handlePost(request: NextRequest) {
   const actor = await getCurrentAppUser();
 
   if (!actor) {
@@ -28,3 +29,5 @@ export async function POST(request: NextRequest) {
     throw error;
   }
 }
+
+export const POST = mutationRoute("src/app/api/orders", handlePost);

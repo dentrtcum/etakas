@@ -121,6 +121,9 @@ export const users = pgTable(
     passwordHash: text("password_hash"),
     totpEnabled: boolean("totp_enabled").notNull().default(false),
     lockedUntil: timestamp("locked_until", { withTimezone: true }),
+    disabledAt: timestamp("disabled_at", { withTimezone: true }),
+    failedLoginAttempts: integer("failed_login_attempts").notNull().default(0),
+    authVersion: integer("auth_version").notNull().default(0),
     createdAt,
     updatedAt
   },
@@ -138,12 +141,47 @@ export const sessions = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     ipHash: text("ip_hash"),
     userAgentHash: text("user_agent_hash"),
+    authVersion: integer("auth_version").notNull().default(0),
+    emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
     createdAt
   },
   (table) => [
     uniqueIndex("sessions_token_hash_unique").on(table.tokenHash),
     index("sessions_user_id_idx").on(table.userId)
   ]
+);
+
+export const securityChallenges = pgTable(
+  "security_challenges",
+  {
+    id,
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    purpose: varchar("purpose", { length: 32 }).notNull(),
+    secretHash: text("secret_hash").notNull(),
+    browserHash: text("browser_hash"),
+    authVersion: integer("auth_version").notNull(),
+    nextPath: text("next_path").notNull().default("/panel"),
+    attempts: integer("attempts").notNull().default(0),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt
+  },
+  (table) => [
+    index("security_challenges_user_idx").on(table.userId),
+    index("security_challenges_expiry_idx").on(table.expiresAt)
+  ]
+);
+
+export const rateLimitBuckets = pgTable(
+  "rate_limit_buckets",
+  {
+    key: text("key").primaryKey(),
+    count: integer("count").notNull().default(1),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull()
+  },
+  (table) => [index("rate_limit_buckets_expiry_idx").on(table.expiresAt)]
 );
 
 export const userRoles = pgTable(
@@ -295,6 +333,7 @@ export const productBatches = pgTable(
       .notNull()
       .references(() => productCatalog.id),
     lotNumberEncrypted: text("lot_number_encrypted").notNull(),
+    submittedName: varchar("submitted_name", { length: 240 }),
     expiryDate: date("expiry_date").notNull(),
     invoiceDate: date("invoice_date"),
     invoiceNumberEncrypted: text("invoice_number_encrypted"),
@@ -365,7 +404,11 @@ export const listings = pgTable(
     updatedAt
   },
   (table) => [
-    index("listings_marketplace_idx").on(table.status, table.minExpiryDate, table.unitReferenceValueKurus),
+    index("listings_marketplace_idx").on(
+      table.status,
+      table.minExpiryDate,
+      table.unitReferenceValueKurus
+    ),
     index("listings_seller_idx").on(table.sellerOrganizationId),
     check("listings_value_non_negative", sql`${table.unitReferenceValueKurus} >= 0`),
     check("listings_quantity_available_non_negative", sql`${table.quantityAvailable} >= 0`),
@@ -432,11 +475,17 @@ export const orders = pgTable(
     updatedAt
   },
   (table) => [
-    uniqueIndex("orders_idempotency_key_unique").on(table.idempotencyKey),
+    uniqueIndex("orders_buyer_idempotency_key_unique").on(
+      table.buyerOrganizationId,
+      table.idempotencyKey
+    ),
     index("orders_buyer_idx").on(table.buyerOrganizationId),
     index("orders_seller_idx").on(table.sellerOrganizationId),
     index("orders_status_auto_complete_idx").on(table.status, table.autoCompleteAfter),
-    check("orders_distinct_parties", sql`${table.buyerOrganizationId} <> ${table.sellerOrganizationId}`),
+    check(
+      "orders_distinct_parties",
+      sql`${table.buyerOrganizationId} <> ${table.sellerOrganizationId}`
+    ),
     check("orders_total_non_negative", sql`${table.totalReferenceValueKurus} >= 0`),
     check("orders_quantity_positive", sql`${table.quantity} > 0`)
   ]
@@ -672,6 +721,24 @@ export const loginEvents = pgTable("login_events", {
   reason: text("reason"),
   createdAt
 });
+
+export const policyAcceptances = pgTable(
+  "policy_acceptances",
+  {
+    id,
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id").references(() => organizations.id, {
+      onDelete: "cascade"
+    }),
+    documentKey: varchar("document_key", { length: 80 }).notNull(),
+    documentVersion: varchar("document_version", { length: 40 }).notNull(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }).notNull().defaultNow(),
+    ipHash: text("ip_hash")
+  },
+  (table) => [index("policy_acceptances_user_idx").on(table.userId)]
+);
 
 export const adminApprovals = pgTable("admin_approvals", {
   id,

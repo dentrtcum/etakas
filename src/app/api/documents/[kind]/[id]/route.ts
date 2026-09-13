@@ -4,16 +4,32 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { getCurrentAppUser } from "@/lib/auth/current-user";
 import { requireAdmin } from "@/lib/auth/authorization";
-import { organizationDocuments, listingDocuments, listingImages, listings } from "@/lib/db/schema";
+import {
+  organizationDocuments,
+  listingDocuments,
+  listingImages,
+  listings,
+  auditLogs
+} from "@/lib/db/schema";
+import { randomUUID } from "node:crypto";
+import { requireOrganizationAccess } from "@/lib/auth/authorization";
+import { requireRateLimit, securityErrorResponse } from "@/lib/security/request-guards";
 import { serverEnv } from "@/lib/env";
 import { z } from "zod";
 export const runtime = "nodejs";
-export async function GET(
-  _request: Request,
+async function downloadDocument(
+  request: Request,
   { params }: { params: Promise<{ kind: string; id: string }> }
 ) {
   const actor = await getCurrentAppUser();
   if (!actor) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  await requireRateLimit({
+    request,
+    action: "private-documents",
+    identifier: actor.id,
+    limit: 90,
+    windowSeconds: 60
+  });
   const { kind, id } = await params;
   if (!z.string().uuid().safeParse(id).success) return new Response(null, { status: 404 });
   const db = getDb();
@@ -42,9 +58,18 @@ export async function GET(
       .limit(1);
   }
   if (!document) return new Response(null, { status: 404 });
-  if (!requireAdmin(actor).allowed && !actor.organizationIds.includes(document.organizationId))
-    return new Response(null, { status: 403 });
-  if (["INFECTED", "REJECTED", "DELETED", "QUARANTINED"].includes(document.scanStatus))
+  if (
+    !requireAdmin(actor).allowed &&
+    !requireOrganizationAccess(actor, document.organizationId, [
+      "ORGANIZATION_OWNER",
+      "ORGANIZATION_MANAGER",
+      "INVENTORY_MANAGER",
+      "ORDER_MANAGER",
+      "VIEWER"
+    ]).allowed
+  )
+    return new Response(null, { status: 404 });
+  if (!["UPLOADED", "CLEAN"].includes(document.scanStatus))
     return new Response(null, { status: 403 });
   if (!serverEnv.BLOB_READ_WRITE_TOKEN)
     return NextResponse.json({ error: "STORAGE_UNAVAILABLE" }, { status: 503 });
@@ -53,12 +78,32 @@ export async function GET(
     token: serverEnv.BLOB_READ_WRITE_TOKEN
   });
   if (!result || result.statusCode !== 200) return new Response(null, { status: 404 });
+  await db.insert(auditLogs).values({
+    actorUserId: actor.id,
+    organizationId: document.organizationId,
+    action: "PRIVATE_DOCUMENT_DOWNLOADED",
+    targetType: kind,
+    targetId: id,
+    correlationId: randomUUID()
+  });
   return new Response(result.stream, {
     headers: {
       "Content-Type": result.blob.contentType,
       "Content-Disposition": `attachment; filename="belge-${id}"`,
       "Cache-Control": "private, no-store",
-      "X-Content-Type-Options": "nosniff"
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "default-src 'none'; sandbox"
     }
   });
+}
+
+export async function GET(
+  request: Request,
+  context: { params: Promise<{ kind: string; id: string }> }
+) {
+  try {
+    return await downloadDocument(request, context);
+  } catch (error) {
+    return securityErrorResponse(error);
+  }
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getCurrentAppUser } from "@/lib/auth/current-user";
 import {
   ArrowUpRight,
   ArrowLeftRight,
@@ -7,7 +8,8 @@ import {
   Check,
   Building2
 } from "lucide-react";
-export default function HomePage() {
+export default async function HomePage() {
+  const user = await getCurrentAppUser();
   return (
     <main className="page-container">
       <section className="hero">
@@ -23,8 +25,8 @@ export default function HomePage() {
             takas süreçlerini tek bir yerden yönetin.
           </p>
           <div className="flex flex-wrap gap-3 mt-7">
-            <Link href="/isletme-kaydi" className="button button-primary">
-              İşletmenizi kaydedin <ArrowUpRight size={17} />
+            <Link href={user ? "/panel" : "/isletme-kaydi"} className="button button-primary">
+              {user ? "Çalışma alanını aç" : "İşletmenizi kaydedin"} <ArrowUpRight size={17} />
             </Link>
             <Link href="/#nasil-calisir" className="button button-secondary">
               Nasıl çalışır?
@@ -33,6 +35,10 @@ export default function HomePage() {
           <p className="hero-caption">
             <Check size={15} />
             İşletme onayı · İlan incelemesi · Karşılıklı teslim teyidi
+          </p>
+          <p className="hero-disclosure">
+            İşletmeler için geliştirilir. Gerçek işlemler, mesleki yetki ve platformun kullanım
+            şartlarına bağlıdır. <Link href="/hukuki/platform-kurallari">Kapsamı inceleyin</Link>
           </p>
         </div>
         <div className="hero-visual" aria-label="Takas sürecinin üç adımı">
@@ -115,9 +121,27 @@ export default function HomePage() {
             Başvurunuzu tamamlayın, onay sonrasında ilan vermeye başlayın.
           </p>
         </div>
-        <Link href="/isletme-kaydi" className="button button-primary">
-          Başvuruya başlayın <ArrowUpRight size={16} />
+        <Link href={user ? "/panel" : "/isletme-kaydi"} className="button button-primary">
+          {user ? "Çalışma alanını aç" : "Başvuruya başlayın"} <ArrowUpRight size={16} />
         </Link>
+      </section>
+      <section className="home-help">
+        <div>
+          <p className="eyebrow">BİLMENİZ GEREKENLER</p>
+          <h2>Açık bilgiler, anlaşılır süreçler.</h2>
+          <p>
+            Başvurunuzu göndermeden önce kullanım şartlarını ve verilerinizin nasıl işlendiğini
+            inceleyin.
+          </p>
+        </div>
+        <div className="home-help-links">
+          <Link href="/sss">
+            Sıkça sorulan sorular <ArrowUpRight size={17} />
+          </Link>
+          <Link href="/hukuki">
+            Koşullar ve gizlilik <ArrowUpRight size={17} />
+          </Link>
+        </div>
       </section>
     </main>
   );

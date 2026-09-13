@@ -1,15 +1,19 @@
 import Link from "next/link";
-import { ArrowLeftRight, ArrowUpRight, PackageOpen } from "lucide-react";
+import Image from "next/image";
+import { ArrowUpRight, PackageOpen } from "lucide-react";
 import type { ReactNode } from "react";
 export function Brand() {
   return (
     <Link href="/" className="brand" aria-label="E-Takas ana sayfa">
-      <span className="brand-icon">
-        <ArrowLeftRight size={22} />
-      </span>
-      <span>
-        E<span className="text-[var(--primary)]">Takas</span>
-        <small>İŞLETMELER ARASI TAKAS</small>
+      <span className="brand-image-frame">
+        <Image
+          src="/EtakasLogo.png"
+          alt="Etakas"
+          width={1402}
+          height={768}
+          priority
+          sizes="280px"
+        />
       </span>
     </Link>
   );

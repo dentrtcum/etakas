@@ -18,6 +18,8 @@ import { redirect } from "next/navigation";
 import { cache } from "react";
 import { decryptField } from "@/lib/encryption/field-crypto";
 import { serverEnv } from "@/lib/env";
+import { assertOrganizationRead } from "@/lib/db/access";
+import { SecurityError } from "@/lib/security/request-guards";
 export const getAccountContext = cache(async () => {
   const actor = await getCurrentAppUser();
   if (!actor) redirect("/giris?next=/panel");
@@ -34,6 +36,7 @@ export const getAccountContext = cache(async () => {
   return { actor, organization };
 });
 export async function getAccountOverview(organizationId: string) {
+  await assertOrganizationRead(organizationId);
   const db = getDb();
   const [account] = await db
     .select()
@@ -92,11 +95,12 @@ export async function getAccountOverview(organizationId: string) {
   };
 }
 export async function getOwnListings(organizationId: string, page = 1) {
+  await assertOrganizationRead(organizationId);
   return getDb()
     .select({
       id: listings.id,
       status: listings.status,
-      productName: productCatalog.name,
+      productName: sql<string>`coalesce(${productBatches.submittedName}, ${productCatalog.name})`,
       barcode: productCatalog.gtin,
       quantity: listings.quantityAvailable,
       reserved: listings.quantityReserved,
@@ -113,6 +117,7 @@ export async function getOwnListings(organizationId: string, page = 1) {
     .offset((page - 1) * 20);
 }
 export async function getOrganizationDetails(organizationId: string) {
+  await assertOrganizationRead(organizationId);
   const db = getDb();
   const [addresses, documents] = await Promise.all([
     db
@@ -138,6 +143,13 @@ export async function getOrganizationDetails(organizationId: string) {
   };
 }
 export async function getLedgerHistory(accountId: string, page = 1) {
+  const [account] = await getDb()
+    .select({ organizationId: ledgerAccounts.organizationId })
+    .from(ledgerAccounts)
+    .where(eq(ledgerAccounts.id, accountId))
+    .limit(1);
+  if (!account) throw new SecurityError("FORBIDDEN", 403);
+  await assertOrganizationRead(account.organizationId);
   return getDb()
     .select({
       id: ledgerEntries.id,

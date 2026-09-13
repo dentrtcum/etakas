@@ -6,12 +6,21 @@ import {
   readPage
 } from "@/modules/organizations/account-queries";
 import { SubmitForm } from "@/components/submit-form";
+import { requireOrganizationAccess } from "@/lib/auth/authorization";
 export default async function ListingsPage({
   searchParams
 }: {
   searchParams: Promise<{ page?: string }>;
 }) {
-  const { organization } = await getAccountContext();
+  const { actor, organization } = await getAccountContext();
+  const canEdit = Boolean(
+    organization?.status === "APPROVED" &&
+    requireOrganizationAccess(actor, organization.id, [
+      "ORGANIZATION_OWNER",
+      "ORGANIZATION_MANAGER",
+      "INVENTORY_MANAGER"
+    ]).allowed
+  );
   const page = readPage((await searchParams).page);
   const rows = organization ? await getOwnListings(organization.id, page) : [];
   return (
@@ -21,7 +30,7 @@ export default async function ListingsPage({
         title="İlanlarım"
         description="İlanlarınızın onay durumunu, kullanılabilir ve rezerve miktarlarını takip edin."
         action={
-          organization?.status === "APPROVED" ? (
+          canEdit ? (
             <Link href="/ilan-olustur" className="button button-primary">
               + Yeni ilan
             </Link>
@@ -47,7 +56,7 @@ export default async function ListingsPage({
                 <strong>{formatValue(row.value)} referans / adet</strong>
               </div>
               {row.note && <p className="notice">İnceleme notu: {row.note}</p>}
-              {row.status === "CHANGES_REQUESTED" && (
+              {canEdit && row.status === "CHANGES_REQUESTED" && (
                 <SubmitForm
                   endpoint={`/api/listings/${row.id}/resubmit`}
                   label="Düzenleyip yeniden gönder"
@@ -108,7 +117,7 @@ export default async function ListingsPage({
         <EmptyState
           title="Henüz ilan bulunmuyor"
           description="Oluşturduğunuz ilanlar ve inceleme sonuçları burada listelenir."
-          href={organization?.status === "APPROVED" ? "/ilan-olustur" : undefined}
+          href={canEdit ? "/ilan-olustur" : undefined}
           label="Yeni ilan oluştur"
         />
       )}

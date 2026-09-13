@@ -18,11 +18,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
             {label}
           </Link>
         ))}
-        <form action="/api/session/logout" method="post">
-          <button className="button button-secondary py-2" type="submit">
-            Çıkış yap
-          </button>
-        </form>
       </nav>
       {children}
     </>

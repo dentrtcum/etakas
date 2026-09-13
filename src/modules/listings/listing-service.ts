@@ -13,8 +13,14 @@ import {
 } from "@/lib/db/schema";
 import { encryptField } from "@/lib/encryption/field-crypto";
 import { serverEnv } from "@/lib/env";
-import { uploadPrivateFile, type UploadableFile } from "@/lib/storage/blob-storage";
+import {
+  cleanupUploads,
+  uploadPrivateFiles,
+  type UploadableFile
+} from "@/lib/storage/blob-storage";
+import { requireOrganizationAccess } from "@/lib/auth/authorization";
 import type { ListingSubmissionInput } from "@/modules/listings/listing-input";
+import { lockAccounting } from "@/modules/ledger/accounting-lock";
 
 export class ListingSubmissionError extends Error {
   constructor(message: string) {
@@ -67,177 +73,196 @@ export async function submitListingForReview(
     throw new ListingSubmissionError("ENCRYPTION_KEY is required for listing submission.");
   }
 
-  const uploadedEvidence = await Promise.all(
-    evidence.map(async (item) => ({
-      kind: item.kind,
-      ...(await uploadPrivateFile({
-        file: item.file,
-        folder: "listing-evidence",
-        kind: item.kind
-      }))
-    }))
+  if (
+    !evidence.some((item) => item.kind === "image") ||
+    !evidence.some((item) => item.kind === "package")
+  ) {
+    throw new ListingSubmissionError("Listing images are required.");
+  }
+  const eligibleIds = actor.organizationIds.filter(
+    (id) =>
+      requireOrganizationAccess(actor, id, [
+        "ORGANIZATION_OWNER",
+        "ORGANIZATION_MANAGER",
+        "INVENTORY_MANAGER"
+      ]).allowed
   );
+  const [eligibleOrganization] = eligibleIds.length
+    ? await db
+        .select({ id: organizations.id })
+        .from(organizations)
+        .where(and(inArray(organizations.id, eligibleIds), eq(organizations.status, "APPROVED")))
+        .orderBy(organizations.id)
+        .limit(1)
+    : [];
+  if (!eligibleOrganization)
+    throw new ListingSubmissionError("Only approved organizations can submit listings.");
+  const uploadedEvidence = await uploadPrivateFiles(evidence, "listing-evidence");
 
-  return db.transaction(async (tx) => {
-    const [organization] = await tx
-      .select({ id: organizations.id, type: organizations.type, status: organizations.status })
-      .from(organizations)
-      .where(
-        actor.organizationIds.length > 0
-          ? and(
-              inArray(organizations.id, actor.organizationIds),
-              eq(organizations.status, "APPROVED")
-            )
-          : eq(organizations.id, "00000000-0000-0000-0000-000000000000")
-      )
-      .limit(1);
+  return db
+    .transaction(async (tx) => {
+      await lockAccounting(tx);
+      const [organization] = await tx
+        .select({ id: organizations.id, type: organizations.type, status: organizations.status })
+        .from(organizations)
+        .where(
+          and(eq(organizations.id, eligibleOrganization.id), eq(organizations.status, "APPROVED"))
+        )
+        .for("share")
+        .limit(1);
 
-    if (!organization) {
-      throw new ListingSubmissionError("Only approved organizations can submit listings.");
-    }
+      if (!organization) {
+        throw new ListingSubmissionError("Only approved organizations can submit listings.");
+      }
 
-    const [existingProduct] = await tx
-      .select({
-        id: productCatalog.id,
-        type: productCatalog.type,
-        isActive: productCatalog.isActive,
-        requiresColdChain: productCatalog.requiresColdChain,
-        isBiological: productCatalog.isBiological,
-        controlCategory: productCatalog.controlCategory
-      })
-      .from(productCatalog)
-      .where(and(eq(productCatalog.gtin, input.barcode), eq(productCatalog.isActive, true)))
-      .limit(1);
+      const [existingProduct] = await tx
+        .select({
+          id: productCatalog.id,
+          type: productCatalog.type,
+          isActive: productCatalog.isActive,
+          requiresColdChain: productCatalog.requiresColdChain,
+          isBiological: productCatalog.isBiological,
+          controlCategory: productCatalog.controlCategory
+        })
+        .from(productCatalog)
+        .where(and(eq(productCatalog.gtin, input.barcode), eq(productCatalog.isActive, true)))
+        .limit(1);
 
-    const product =
-      existingProduct ??
-      (
-        await tx
-          .insert(productCatalog)
-          .values({
-            name: input.productName ?? `Barkod ${input.barcode}`,
-            type: inferProductType(organization.type),
-            gtin: input.barcode,
-            controlCategory: "STANDARD",
-            isActive: true
-          })
-          .onConflictDoUpdate({
-            target: productCatalog.gtin,
-            set: { updatedAt: new Date() }
-          })
-          .returning({
-            id: productCatalog.id,
-            type: productCatalog.type,
-            isActive: productCatalog.isActive,
-            requiresColdChain: productCatalog.requiresColdChain,
-            isBiological: productCatalog.isBiological,
-            controlCategory: productCatalog.controlCategory
-          })
-      )[0];
+      const product =
+        existingProduct ??
+        (
+          await tx
+            .insert(productCatalog)
+            .values({
+              name: input.productName ?? `Barkod ${input.barcode}`,
+              type: inferProductType(organization.type),
+              gtin: input.barcode,
+              controlCategory: "STANDARD",
+              isActive: true
+            })
+            .onConflictDoUpdate({
+              target: productCatalog.gtin,
+              set: { updatedAt: new Date() }
+            })
+            .returning({
+              id: productCatalog.id,
+              type: productCatalog.type,
+              isActive: productCatalog.isActive,
+              requiresColdChain: productCatalog.requiresColdChain,
+              isBiological: productCatalog.isBiological,
+              controlCategory: productCatalog.controlCategory
+            })
+        )[0];
 
-    if (!product) {
-      throw new ListingSubmissionError("Product catalog item could not be prepared.");
-    }
+      if (!product) {
+        throw new ListingSubmissionError("Product catalog item could not be prepared.");
+      }
 
-    if (
-      !product.isActive ||
-      product.requiresColdChain ||
-      product.isBiological ||
-      product.controlCategory !== "STANDARD"
-    ) {
-      throw new ListingSubmissionError("High-risk products are blocked by default.");
-    }
+      if (
+        !product.isActive ||
+        (organization.type !== "PHARMACY" && product.type === "HUMAN") ||
+        product.requiresColdChain ||
+        product.isBiological ||
+        product.controlCategory !== "STANDARD"
+      ) {
+        throw new ListingSubmissionError("High-risk products are blocked by default.");
+      }
 
-    const [batch] = await tx
-      .insert(productBatches)
-      .values({
+      const [batch] = await tx
+        .insert(productBatches)
+        .values({
+          organizationId: organization.id,
+          productId: product.id,
+          submittedName: input.productName,
+          lotNumberEncrypted: encryptField(
+            input.lotNumber || buildSystemLotNumber(input.barcode, input.expiryDate),
+            encryptionKey
+          ),
+          expiryDate: input.expiryDate,
+          invoiceDate: null,
+          invoiceNumberEncrypted: null,
+          unitReferenceValueKurus: input.unitReferenceValueKurus,
+          totalQuantity: input.quantity,
+          availableQuantity: input.quantity,
+          reservedQuantity: 0,
+          transferredQuantity: 0,
+          storageConditions: input.storageConditions
+        })
+        .returning({ id: productBatches.id });
+
+      if (!batch) {
+        throw new ListingSubmissionError("Product batch could not be created.");
+      }
+
+      const [listing] = await tx
+        .insert(listings)
+        .values({
+          sellerOrganizationId: organization.id,
+          batchId: batch.id,
+          status: "PENDING_REVIEW",
+          unitReferenceValueKurus: input.unitReferenceValueKurus,
+          quantityAvailable: input.quantity,
+          quantityReserved: 0,
+          minExpiryDate: input.expiryDate,
+          submittedAt: new Date()
+        })
+        .returning({ id: listings.id, status: listings.status });
+
+      if (!listing) {
+        throw new ListingSubmissionError("Listing could not be created.");
+      }
+
+      const imageEvidence = uploadedEvidence.filter(
+        (item) => item.kind === "image" || item.kind === "package"
+      );
+      const documentEvidence = uploadedEvidence.filter(
+        (item) => item.kind !== "image" && item.kind !== "package"
+      );
+
+      if (imageEvidence.length > 0) {
+        await tx.insert(listingImages).values(
+          imageEvidence.map((item) => ({
+            listingId: listing.id,
+            storageKey: item.storageKey,
+            scanStatus: "UPLOADED" as const
+          }))
+        );
+      }
+
+      if (documentEvidence.length > 0) {
+        await tx.insert(listingDocuments).values(
+          documentEvidence.map((item) => ({
+            listingId: listing.id,
+            kind: item.kind,
+            storageKey: item.storageKey,
+            scanStatus: "UPLOADED" as const
+          }))
+        );
+      }
+
+      await tx.insert(auditLogs).values({
+        actorUserId: actor.id,
         organizationId: organization.id,
-        productId: product.id,
-        lotNumberEncrypted: encryptField(
-          input.lotNumber || buildSystemLotNumber(input.barcode, input.expiryDate),
-          encryptionKey
-        ),
-        expiryDate: input.expiryDate,
-        invoiceDate: null,
-        invoiceNumberEncrypted: null,
-        unitReferenceValueKurus: input.unitReferenceValueKurus,
-        totalQuantity: input.quantity,
-        availableQuantity: input.quantity,
-        reservedQuantity: 0,
-        transferredQuantity: 0,
-        storageConditions: input.storageConditions
-      })
-      .returning({ id: productBatches.id });
+        action: "LISTING_SUBMITTED_FOR_REVIEW",
+        targetType: "listing",
+        targetId: listing.id,
+        safeBefore: null,
+        safeAfter: {
+          productId: product.id,
+          barcode: input.barcode,
+          quantity: input.quantity,
+          unitReferenceValueKurus: input.unitReferenceValueKurus,
+          expiryDate: input.expiryDate,
+          evidenceCount: uploadedEvidence.length
+        },
+        correlationId: randomUUID(),
+        reason: "Organization submitted inventory listing for admin review."
+      });
 
-    if (!batch) {
-      throw new ListingSubmissionError("Product batch could not be created.");
-    }
-
-    const [listing] = await tx
-      .insert(listings)
-      .values({
-        sellerOrganizationId: organization.id,
-        batchId: batch.id,
-        status: "PENDING_REVIEW",
-        unitReferenceValueKurus: input.unitReferenceValueKurus,
-        quantityAvailable: input.quantity,
-        quantityReserved: 0,
-        minExpiryDate: input.expiryDate,
-        submittedAt: new Date()
-      })
-      .returning({ id: listings.id, status: listings.status });
-
-    if (!listing) {
-      throw new ListingSubmissionError("Listing could not be created.");
-    }
-
-    const imageEvidence = uploadedEvidence.filter(
-      (item) => item.kind === "image" || item.kind === "package"
-    );
-    const documentEvidence = uploadedEvidence.filter(
-      (item) => item.kind !== "image" && item.kind !== "package"
-    );
-
-    if (imageEvidence.length > 0) {
-      await tx.insert(listingImages).values(
-        imageEvidence.map((item) => ({
-          listingId: listing.id,
-          storageKey: item.storageKey,
-          scanStatus: "UPLOADED" as const
-        }))
-      );
-    }
-
-    if (documentEvidence.length > 0) {
-      await tx.insert(listingDocuments).values(
-        documentEvidence.map((item) => ({
-          listingId: listing.id,
-          kind: item.kind,
-          storageKey: item.storageKey,
-          scanStatus: "UPLOADED" as const
-        }))
-      );
-    }
-
-    await tx.insert(auditLogs).values({
-      actorUserId: actor.id,
-      organizationId: organization.id,
-      action: "LISTING_SUBMITTED_FOR_REVIEW",
-      targetType: "listing",
-      targetId: listing.id,
-      safeBefore: null,
-      safeAfter: {
-        productId: product.id,
-        barcode: input.barcode,
-        quantity: input.quantity,
-        unitReferenceValueKurus: input.unitReferenceValueKurus,
-        expiryDate: input.expiryDate,
-        evidenceCount: uploadedEvidence.length
-      },
-      correlationId: randomUUID(),
-      reason: "Organization submitted inventory listing for admin review."
+      return listing;
+    })
+    .catch(async (error: unknown) => {
+      await cleanupUploads(uploadedEvidence);
+      throw error;
     });
-
-    return listing;
-  });
 }

@@ -8,13 +8,18 @@ import {
   organizationAddresses,
   organizations,
   users,
+  policyAcceptances,
   type organizationStatus,
   type organizationType
 } from "@/lib/db/schema";
-import { hashPassword } from "@/lib/auth/password";
+import { hashPasswordAsync } from "@/lib/auth/password";
 import { encryptField } from "@/lib/encryption/field-crypto";
 import { serverEnv } from "@/lib/env";
-import { uploadPrivateFile, type UploadableFile } from "@/lib/storage/blob-storage";
+import {
+  cleanupUploads,
+  uploadPrivateFiles,
+  type UploadableFile
+} from "@/lib/storage/blob-storage";
 import {
   createPublicAlias,
   toSafeApplicationAuditSummary,
@@ -73,7 +78,8 @@ export function buildOrganizationAddressInsert(
 
 export async function submitOrganizationApplication(
   application: OrganizationApplication,
-  documents: { kind: string; file: UploadableFile }[] = []
+  documents: { kind: string; file: UploadableFile }[] = [],
+  ipHash?: string
 ) {
   if (!serverEnv.DATABASE_URL) {
     throw new PersistenceConfigurationError();
@@ -89,78 +95,96 @@ export async function submitOrganizationApplication(
     .limit(1);
   if (existingUser) throw new Error("EMAIL_ALREADY_REGISTERED");
 
-  const uploadedDocuments = await Promise.all(
-    documents.map(async (document) => ({
-      kind: document.kind,
-      ...(await uploadPrivateFile({
-        file: document.file,
-        folder: "organization-applications",
-        kind: document.kind
-      }))
-    }))
-  );
+  const passwordHash = await hashPasswordAsync(application.password);
+  const uploadedDocuments = await uploadPrivateFiles(documents, "organization-applications");
 
-  return db.transaction(async (tx) => {
-    const [organization] = await tx
-      .insert(organizations)
-      .values(buildOrganizationInsert(application, encryptionSecret))
-      .returning({ id: organizations.id, status: organizations.status });
+  return db
+    .transaction(async (tx) => {
+      const [organization] = await tx
+        .insert(organizations)
+        .values(buildOrganizationInsert(application, encryptionSecret))
+        .returning({ id: organizations.id, status: organizations.status });
 
-    if (!organization) {
-      throw new Error("Organization application could not be created.");
-    }
+      if (!organization) {
+        throw new Error("Organization application could not be created.");
+      }
 
-    await tx
-      .insert(organizationAddresses)
-      .values(buildOrganizationAddressInsert(organization.id, application, encryptionSecret));
+      await tx
+        .insert(organizationAddresses)
+        .values(buildOrganizationAddressInsert(organization.id, application, encryptionSecret));
 
-    const [user] = await tx
-      .insert(users)
-      .values({
-        email: application.email.toLowerCase(),
-        name: application.authorizedPersonName,
-        emailVerified: false,
-        passwordHash: hashPassword(application.password),
-        totpEnabled: false
-      })
-      .returning({ id: users.id });
+      const [user] = await tx
+        .insert(users)
+        .values({
+          email: application.email.toLowerCase(),
+          name: application.authorizedPersonName,
+          emailVerified: false,
+          passwordHash,
+          totpEnabled: false
+        })
+        .returning({ id: users.id });
 
-    if (!user) {
-      throw new Error("Organization application user could not be created.");
-    }
+      if (!user) {
+        throw new Error("Organization application user could not be created.");
+      }
 
-    await tx.insert(organizationMembers).values({
-      organizationId: organization.id,
-      userId: user.id,
-      role: "ORGANIZATION_OWNER"
-    });
+      await tx.insert(organizationMembers).values({
+        organizationId: organization.id,
+        userId: user.id,
+        role: "ORGANIZATION_OWNER"
+      });
 
-    if (uploadedDocuments.length > 0) {
-      await tx.insert(organizationDocuments).values(
-        uploadedDocuments.map((document) => ({
+      await tx.insert(policyAcceptances).values([
+        {
+          userId: user.id,
           organizationId: organization.id,
-          kind: document.kind,
-          storageKey: document.storageKey,
-          originalNameHash: document.originalNameHash,
-          mimeType: document.mimeType,
-          byteSize: document.byteSize,
-          scanStatus: "UPLOADED" as const
-        }))
-      );
-    }
+          documentKey: "terms",
+          documentVersion: application.legalVersion,
+          ipHash
+        },
+        {
+          userId: user.id,
+          organizationId: organization.id,
+          documentKey: "privacy_notice_acknowledgement",
+          documentVersion: application.legalVersion,
+          ipHash
+        }
+      ]);
 
-    await tx.insert(auditLogs).values({
-      actorUserId: null,
-      organizationId: organization.id,
-      action: "ORGANIZATION_APPLICATION_SUBMITTED",
-      targetType: "organization",
-      targetId: organization.id,
-      safeBefore: null,
-      safeAfter: toSafeApplicationAuditSummary(application),
-      correlationId: randomUUID(),
-      reason: `Public organization application submitted with ${uploadedDocuments.length} document(s).`
+      if (uploadedDocuments.length > 0) {
+        await tx.insert(organizationDocuments).values(
+          uploadedDocuments.map((document) => ({
+            organizationId: organization.id,
+            kind: document.kind,
+            storageKey: document.storageKey,
+            originalNameHash: document.originalNameHash,
+            mimeType: document.mimeType,
+            byteSize: document.byteSize,
+            scanStatus: "UPLOADED" as const
+          }))
+        );
+      }
+
+      await tx.insert(auditLogs).values({
+        actorUserId: null,
+        organizationId: organization.id,
+        action: "ORGANIZATION_APPLICATION_SUBMITTED",
+        targetType: "organization",
+        targetId: organization.id,
+        safeBefore: null,
+        safeAfter: toSafeApplicationAuditSummary(application),
+        correlationId: randomUUID(),
+        reason: `Public organization application submitted with ${uploadedDocuments.length} document(s).`
+      });
+
+      return organization;
+    })
+    .catch(async (error: unknown) => {
+      await cleanupUploads(uploadedDocuments);
+      // A concurrent duplicate application is still a controlled error.
+      if (error && typeof error === "object" && "code" in error && error.code === "23505") {
+        throw new Error("EMAIL_ALREADY_REGISTERED");
+      }
+      throw error;
     });
-
-    return organization;
-  });
 }

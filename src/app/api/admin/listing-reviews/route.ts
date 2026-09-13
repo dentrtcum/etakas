@@ -1,13 +1,17 @@
+import { mutationRoute } from "@/lib/http/mutation";
 import { NextResponse, type NextRequest } from "next/server";
 import { ZodError } from "zod";
 import { requireAdmin } from "@/lib/auth/authorization";
 import { getCurrentAppUser } from "@/lib/auth/current-user";
-import { listingReviewInputSchema, parseListingReviewFormData } from "@/modules/listings/listing-review-input";
+import {
+  listingReviewInputSchema,
+  parseListingReviewFormData
+} from "@/modules/listings/listing-review-input";
 import { reviewListing } from "@/modules/listings/listing-review-service";
 
 export const runtime = "nodejs";
 
-export async function POST(request: NextRequest) {
+async function handlePost(request: NextRequest) {
   const actor = await getCurrentAppUser();
   const authorization = requireAdmin(actor);
 
@@ -47,3 +51,5 @@ export async function POST(request: NextRequest) {
     throw error;
   }
 }
+
+export const POST = mutationRoute("src/app/api/admin/listing-reviews", handlePost);

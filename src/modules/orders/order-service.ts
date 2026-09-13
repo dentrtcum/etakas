@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, isNull, sql } from "drizzle-orm";
-import { requireOrganizationAccess } from "@/lib/auth/authorization";
+import { and, eq, isNull, isNotNull, sql } from "drizzle-orm";
+import { requireAdmin, requireOrganizationAccess } from "@/lib/auth/authorization";
+import { lockAccounting } from "@/modules/ledger/accounting-lock";
+import { assertLiveTradingEnabled } from "@/modules/compliance/live-trading";
 import type { AppSessionUser } from "@/lib/auth/roles";
 import { getDb } from "@/lib/db/client";
 import {
@@ -23,7 +25,11 @@ import { assertMarketplaceVisibility } from "@/modules/marketplace/marketplace-p
 import type { OrganizationKind, ProductKind } from "@/modules/compliance/trading-policy";
 import { assertAdminOrderDecision, type AdminOrderDecision } from "@/modules/orders/order-state";
 export type { AdminOrderDecision } from "@/modules/orders/order-state";
-import type { OrderCreationInput } from "@/modules/orders/order-input";
+import {
+  orderActionSchema,
+  orderCreationSchema,
+  type OrderCreationInput
+} from "@/modules/orders/order-input";
 
 export class OrderFlowError extends Error {
   constructor(message: string) {
@@ -46,6 +52,8 @@ function calculateLedgerBalance(entries: LedgerEntryRow[]) {
 }
 
 export async function createOrderReservation(actor: AppSessionUser, input: OrderCreationInput) {
+  input = orderCreationSchema.parse(input);
+  assertLiveTradingEnabled();
   const authorization = requireOrganizationAccess(actor, input.buyerOrganizationId, [
     "ORGANIZATION_OWNER",
     "ORGANIZATION_MANAGER",
@@ -59,8 +67,14 @@ export async function createOrderReservation(actor: AppSessionUser, input: Order
   const db = getDb();
 
   return db.transaction(async (tx) => {
+    await lockAccounting(tx);
     const [existing] = await tx
-      .select({ id: orders.id, status: orders.status })
+      .select({
+        id: orders.id,
+        status: orders.status,
+        listingId: orders.listingId,
+        quantity: orders.quantity
+      })
       .from(orders)
       .where(
         and(
@@ -71,7 +85,9 @@ export async function createOrderReservation(actor: AppSessionUser, input: Order
       .limit(1);
 
     if (existing) {
-      return existing;
+      if (existing.listingId !== input.listingId || existing.quantity !== input.quantity)
+        throw new OrderFlowError("Idempotency key was used for a different request.");
+      return { id: existing.id, status: existing.status };
     }
 
     const [listing] = await tx
@@ -88,7 +104,7 @@ export async function createOrderReservation(actor: AppSessionUser, input: Order
       .for("update")
       .limit(1);
 
-    if (!listing || listing.status !== "ACTIVE") {
+    if (!listing || !["ACTIVE", "PARTIALLY_RESERVED"].includes(listing.status)) {
       throw new OrderFlowError("Listing is not active.");
     }
 
@@ -116,7 +132,7 @@ export async function createOrderReservation(actor: AppSessionUser, input: Order
     }
 
     const [seller] = await tx
-      .select({ id: organizations.id, status: organizations.status })
+      .select({ id: organizations.id, status: organizations.status, type: organizations.type })
       .from(organizations)
       .where(eq(organizations.id, listing.sellerOrganizationId))
       .limit(1);
@@ -161,6 +177,7 @@ export async function createOrderReservation(actor: AppSessionUser, input: Order
     if (
       new Date(`${batch.expiryDate}T23:59:59.999Z`) <= new Date() ||
       !product.isActive ||
+      (seller.type !== "PHARMACY" && product.type === "HUMAN") ||
       product.requiresColdChain ||
       product.isBiological ||
       product.controlCategory !== "STANDARD"
@@ -262,8 +279,7 @@ export async function createOrderReservation(actor: AppSessionUser, input: Order
       .set({
         quantityAvailable: listing.quantityAvailable - input.quantity,
         quantityReserved: sql`${listings.quantityReserved} + ${input.quantity}`,
-        status:
-          listing.quantityAvailable - input.quantity === 0 ? "PARTIALLY_RESERVED" : listing.status,
+        status: "PARTIALLY_RESERVED",
         updatedAt: new Date()
       })
       .where(eq(listings.id, listing.id));
@@ -294,11 +310,15 @@ export async function createOrderReservation(actor: AppSessionUser, input: Order
 }
 
 export async function markSellerHandover(actor: AppSessionUser, orderId: string) {
+  orderId = orderActionSchema.parse({ orderId }).orderId;
+  assertLiveTradingEnabled();
   const db = getDb();
   return db.transaction(async (tx) => {
+    await lockAccounting(tx);
     const [order] = await tx
       .select({
         id: orders.id,
+        buyerOrganizationId: orders.buyerOrganizationId,
         sellerOrganizationId: orders.sellerOrganizationId,
         status: orders.status
       })
@@ -314,6 +334,7 @@ export async function markSellerHandover(actor: AppSessionUser, orderId: string)
       "ORDER_MANAGER"
     ]);
     if (!authorization.allowed) throw new OrderFlowError(authorization.reason);
+    await assertApprovedOrderParties(tx, order);
     if (
       !["RESERVED", "CONTACT_DETAILS_REVEALED", "SELLER_PREPARING", "READY_FOR_PICKUP"].includes(
         order.status
@@ -351,6 +372,8 @@ export async function markSellerHandover(actor: AppSessionUser, orderId: string)
 }
 
 export async function confirmBuyerDelivery(actor: AppSessionUser, orderId: string) {
+  orderId = orderActionSchema.parse({ orderId }).orderId;
+  assertLiveTradingEnabled();
   const db = getDb();
   const [order] = await db
     .select({
@@ -375,16 +398,22 @@ export async function confirmBuyerDelivery(actor: AppSessionUser, orderId: strin
     throw new OrderFlowError("Buyer can only confirm after seller delivery declaration.");
   }
 
-  return completeOrder(orderId, actor.id, "BUYER_CONFIRMATION_PENDING");
+  return getDb().transaction(async (tx) => {
+    await lockAccounting(tx);
+    return completeOrderInTransaction(tx, orderId, actor.id, "BUYER_CONFIRMATION_PENDING", true);
+  });
 }
 
 export async function openOrderDispute(actor: AppSessionUser, orderId: string, reason: string) {
-  if (reason.trim().length < 10) {
-    throw new OrderFlowError("Dispute reason must be at least 10 characters.");
+  orderId = orderActionSchema.parse({ orderId }).orderId;
+  reason = reason.trim();
+  if (reason.length < 10 || reason.length > 2000) {
+    throw new OrderFlowError("Dispute reason must contain 10 to 2000 characters.");
   }
 
   const db = getDb();
   return db.transaction(async (tx) => {
+    await lockAccounting(tx);
     const [order] = await tx
       .select({
         id: orders.id,
@@ -399,8 +428,16 @@ export async function openOrderDispute(actor: AppSessionUser, orderId: string, r
 
     if (!order) throw new OrderFlowError("Order not found.");
 
-    const isBuyer = actor.organizationIds.includes(order.buyerOrganizationId);
-    const isSeller = actor.organizationIds.includes(order.sellerOrganizationId);
+    const isBuyer = requireOrganizationAccess(actor, order.buyerOrganizationId, [
+      "ORGANIZATION_OWNER",
+      "ORGANIZATION_MANAGER",
+      "ORDER_MANAGER"
+    ]).allowed;
+    const isSeller = requireOrganizationAccess(actor, order.sellerOrganizationId, [
+      "ORGANIZATION_OWNER",
+      "ORGANIZATION_MANAGER",
+      "ORDER_MANAGER"
+    ]).allowed;
     if (!isBuyer && !isSeller) {
       throw new OrderFlowError("Only order parties can open disputes.");
     }
@@ -438,8 +475,10 @@ export async function openOrderDispute(actor: AppSessionUser, orderId: string, r
 }
 
 export async function cancelOrderReservation(actor: AppSessionUser, orderId: string) {
+  orderId = orderActionSchema.parse({ orderId }).orderId;
   const db = getDb();
   return db.transaction(async (tx) => {
+    await lockAccounting(tx);
     const [order] = await tx
       .select({
         id: orders.id,
@@ -447,6 +486,7 @@ export async function cancelOrderReservation(actor: AppSessionUser, orderId: str
         sellerOrganizationId: orders.sellerOrganizationId,
         listingId: orders.listingId,
         quantity: orders.quantity,
+        totalReferenceValueKurus: orders.totalReferenceValueKurus,
         status: orders.status
       })
       .from(orders)
@@ -469,53 +509,7 @@ export async function cancelOrderReservation(actor: AppSessionUser, orderId: str
       throw new OrderFlowError("Order cannot be cancelled from current status.");
     }
 
-    const [reservation] = await tx
-      .select({ id: inventoryReservations.id, batchId: inventoryReservations.batchId })
-      .from(inventoryReservations)
-      .where(
-        and(
-          eq(inventoryReservations.orderId, orderId),
-          isNull(inventoryReservations.releasedAt),
-          isNull(inventoryReservations.consumedAt)
-        )
-      )
-      .limit(1);
-
-    await tx
-      .update(balanceHolds)
-      .set({ releasedAt: new Date() })
-      .where(
-        and(
-          eq(balanceHolds.orderId, orderId),
-          isNull(balanceHolds.releasedAt),
-          isNull(balanceHolds.consumedAt)
-        )
-      );
-
-    if (reservation) {
-      await tx
-        .update(inventoryReservations)
-        .set({ releasedAt: new Date() })
-        .where(eq(inventoryReservations.id, reservation.id));
-      await tx
-        .update(productBatches)
-        .set({
-          availableQuantity: sql`${productBatches.availableQuantity} + ${order.quantity}`,
-          reservedQuantity: sql`${productBatches.reservedQuantity} - ${order.quantity}`,
-          updatedAt: new Date()
-        })
-        .where(eq(productBatches.id, reservation.batchId));
-    }
-
-    await tx
-      .update(listings)
-      .set({
-        quantityAvailable: sql`${listings.quantityAvailable} + ${order.quantity}`,
-        quantityReserved: sql`${listings.quantityReserved} - ${order.quantity}`,
-        status: "ACTIVE",
-        updatedAt: new Date()
-      })
-      .where(eq(listings.id, order.listingId));
+    await releaseReservedOrder(tx, order);
 
     const [updated] = await tx
       .update(orders)
@@ -523,25 +517,28 @@ export async function cancelOrderReservation(actor: AppSessionUser, orderId: str
       .where(eq(orders.id, orderId))
       .returning({ id: orders.id, status: orders.status });
 
+    await tx.insert(auditLogs).values({
+      actorUserId: actor.id,
+      organizationId: order.buyerOrganizationId,
+      action: "ORDER_CANCELLED",
+      targetType: "order",
+      targetId: orderId,
+      safeBefore: { status: order.status },
+      safeAfter: { status: "CANCELLED" },
+      correlationId: randomUUID(),
+      reason: "Buyer cancelled the reservation; held balance and stock released."
+    });
     return updated;
   });
 }
 
 type OrderTransaction = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
-export async function completeOrder(
-  orderId: string,
-  actorUserId: string | null = null,
-  expectedStatus?: string
-) {
-  return getDb().transaction((tx) =>
-    completeOrderInTransaction(tx, orderId, actorUserId, expectedStatus)
-  );
-}
 async function completeOrderInTransaction(
   tx: OrderTransaction,
   orderId: string,
   actorUserId: string | null,
-  expectedStatus?: string
+  expectedStatus?: string,
+  requireApprovedParties = false
 ) {
   const [order] = await tx
     .select({
@@ -570,6 +567,9 @@ async function completeOrderInTransaction(
     throw new OrderFlowError("Order cannot be completed from current status.");
   }
 
+  if (requireApprovedParties) await assertApprovedOrderParties(tx, order);
+  const { reservation, hold, currentListing } = await loadReservedOrderState(tx, order);
+
   const [buyerAccount] = await tx
     .select({ id: ledgerAccounts.id })
     .from(ledgerAccounts)
@@ -585,40 +585,16 @@ async function completeOrderInTransaction(
     throw new OrderFlowError("Ledger account is missing.");
   }
 
-  const [reservation] = await tx
-    .select({ id: inventoryReservations.id, batchId: inventoryReservations.batchId })
-    .from(inventoryReservations)
-    .where(
-      and(
-        eq(inventoryReservations.orderId, order.id),
-        isNull(inventoryReservations.consumedAt),
-        isNull(inventoryReservations.releasedAt)
-      )
-    )
-    .limit(1);
-
-  if (!reservation) {
-    throw new OrderFlowError("Inventory reservation is missing.");
-  }
-
-  const [currentListing] = await tx
-    .select({
-      quantityAvailable: listings.quantityAvailable,
-      quantityReserved: listings.quantityReserved
-    })
-    .from(listings)
-    .where(eq(listings.id, order.listingId))
-    .for("update")
-    .limit(1);
-
-  if (!currentListing) {
-    throw new OrderFlowError("Listing is missing.");
-  }
-
-  const nextListingStatus =
-    currentListing.quantityAvailable === 0 && currentListing.quantityReserved - order.quantity === 0
+  const nextListingStatus = !["ACTIVE", "PARTIALLY_RESERVED", "SOLD_OUT"].includes(
+    currentListing.status
+  )
+    ? currentListing.status
+    : currentListing.quantityAvailable === 0 &&
+        currentListing.quantityReserved - order.quantity === 0
       ? "SOLD_OUT"
-      : "ACTIVE";
+      : currentListing.quantityReserved - order.quantity > 0
+        ? "PARTIALLY_RESERVED"
+        : "ACTIVE";
 
   const [ledgerTransaction] = await tx
     .insert(ledgerTransactions)
@@ -645,16 +621,7 @@ async function completeOrderInTransaction(
     }
   ]);
 
-  await tx
-    .update(balanceHolds)
-    .set({ consumedAt: new Date() })
-    .where(
-      and(
-        eq(balanceHolds.orderId, order.id),
-        isNull(balanceHolds.consumedAt),
-        isNull(balanceHolds.releasedAt)
-      )
-    );
+  await tx.update(balanceHolds).set({ consumedAt: new Date() }).where(eq(balanceHolds.id, hold.id));
   await tx
     .update(inventoryReservations)
     .set({ consumedAt: new Date() })
@@ -699,16 +666,40 @@ async function completeOrderInTransaction(
   return updated;
 }
 
-async function releaseReservedOrder(
-  tx: Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0],
-  order: {
-    id: string;
-    listingId: string;
-    quantity: number;
-  }
+type ReservedOrder = {
+  id: string;
+  listingId: string;
+  buyerOrganizationId: string;
+  sellerOrganizationId: string;
+  quantity: number;
+  totalReferenceValueKurus: number;
+};
+
+async function assertApprovedOrderParties(
+  tx: OrderTransaction,
+  order: { buyerOrganizationId: string; sellerOrganizationId: string }
 ) {
-  const [reservation] = await tx
-    .select({ id: inventoryReservations.id, batchId: inventoryReservations.batchId })
+  for (const organizationId of [order.buyerOrganizationId, order.sellerOrganizationId]) {
+    const [organization] = await tx
+      .select({ status: organizations.status })
+      .from(organizations)
+      .where(eq(organizations.id, organizationId))
+      .limit(1);
+    if (organization?.status !== "APPROVED")
+      throw new OrderFlowError("Both order parties must remain approved.");
+  }
+}
+
+// Fail closed on missing, duplicated or inconsistent reservations. Releasing stock or
+// posting ledger entries must never silently repair an inconsistent accounting record.
+async function loadReservedOrderState(tx: OrderTransaction, order: ReservedOrder) {
+  const reservations = await tx
+    .select({
+      id: inventoryReservations.id,
+      batchId: inventoryReservations.batchId,
+      listingId: inventoryReservations.listingId,
+      quantity: inventoryReservations.quantity
+    })
     .from(inventoryReservations)
     .where(
       and(
@@ -717,40 +708,96 @@ async function releaseReservedOrder(
         isNull(inventoryReservations.consumedAt)
       )
     )
-    .limit(1);
+    .for("update")
+    .limit(2);
+  const reservation = reservations[0];
+  if (
+    reservations.length !== 1 ||
+    reservation.quantity !== order.quantity ||
+    reservation.listingId !== order.listingId
+  )
+    throw new OrderFlowError("Inventory reservation is missing or inconsistent.");
 
-  await tx
-    .update(balanceHolds)
-    .set({ releasedAt: new Date() })
+  const holds = await tx
+    .select({
+      id: balanceHolds.id,
+      amountKurus: balanceHolds.amountKurus,
+      organizationId: ledgerAccounts.organizationId
+    })
+    .from(balanceHolds)
+    .innerJoin(ledgerAccounts, eq(balanceHolds.accountId, ledgerAccounts.id))
     .where(
       and(
         eq(balanceHolds.orderId, order.id),
         isNull(balanceHolds.releasedAt),
         isNull(balanceHolds.consumedAt)
       )
-    );
+    )
+    .for("update")
+    .limit(2);
+  const hold = holds[0];
+  if (
+    holds.length !== 1 ||
+    hold.amountKurus !== order.totalReferenceValueKurus ||
+    hold.organizationId !== order.buyerOrganizationId
+  )
+    throw new OrderFlowError("Balance hold is missing or inconsistent.");
 
-  if (reservation) {
-    await tx
-      .update(inventoryReservations)
-      .set({ releasedAt: new Date() })
-      .where(eq(inventoryReservations.id, reservation.id));
-    await tx
-      .update(productBatches)
-      .set({
-        availableQuantity: sql`${productBatches.availableQuantity} + ${order.quantity}`,
-        reservedQuantity: sql`${productBatches.reservedQuantity} - ${order.quantity}`,
-        updatedAt: new Date()
-      })
-      .where(eq(productBatches.id, reservation.batchId));
-  }
+  const [currentListing] = await tx
+    .select({
+      batchId: listings.batchId,
+      sellerOrganizationId: listings.sellerOrganizationId,
+      status: listings.status,
+      quantityAvailable: listings.quantityAvailable,
+      quantityReserved: listings.quantityReserved
+    })
+    .from(listings)
+    .where(eq(listings.id, order.listingId))
+    .for("update")
+    .limit(1);
+  const [batch] = await tx
+    .select({
+      organizationId: productBatches.organizationId,
+      reservedQuantity: productBatches.reservedQuantity
+    })
+    .from(productBatches)
+    .where(eq(productBatches.id, reservation.batchId))
+    .for("update")
+    .limit(1);
+  if (
+    !currentListing ||
+    currentListing.batchId !== reservation.batchId ||
+    currentListing.sellerOrganizationId !== order.sellerOrganizationId ||
+    currentListing.quantityReserved < order.quantity ||
+    !batch ||
+    batch.organizationId !== order.sellerOrganizationId ||
+    batch.reservedQuantity < order.quantity
+  )
+    throw new OrderFlowError("Reserved stock is missing or inconsistent.");
+  return { reservation, hold, currentListing };
+}
 
+async function releaseReservedOrder(tx: OrderTransaction, order: ReservedOrder) {
+  const { reservation, hold } = await loadReservedOrderState(tx, order);
+  await tx.update(balanceHolds).set({ releasedAt: new Date() }).where(eq(balanceHolds.id, hold.id));
+  await tx
+    .update(inventoryReservations)
+    .set({ releasedAt: new Date() })
+    .where(eq(inventoryReservations.id, reservation.id));
+  await tx
+    .update(productBatches)
+    .set({
+      availableQuantity: sql`${productBatches.availableQuantity} + ${order.quantity}`,
+      reservedQuantity: sql`${productBatches.reservedQuantity} - ${order.quantity}`,
+      updatedAt: new Date()
+    })
+    .where(eq(productBatches.id, reservation.batchId));
   await tx
     .update(listings)
     .set({
       quantityAvailable: sql`${listings.quantityAvailable} + ${order.quantity}`,
       quantityReserved: sql`${listings.quantityReserved} - ${order.quantity}`,
-      status: "ACTIVE",
+      status: sql`case when ${listings.status} in ('ACTIVE', 'PARTIALLY_RESERVED', 'SOLD_OUT') then case when ${listings.quantityReserved} - ${order.quantity} > 0 then 'PARTIALLY_RESERVED'::listing_status else 'ACTIVE'::listing_status end else ${listings.status} end`,
       updatedAt: new Date()
     })
     .where(eq(listings.id, order.listingId));
@@ -767,12 +814,17 @@ export async function adminResolveOrder({
   decision: AdminOrderDecision;
   reason: string;
 }) {
-  if (reason.trim().length < 10) {
+  if (!requireAdmin(actor).allowed) throw new OrderFlowError("FORBIDDEN");
+  orderId = orderActionSchema.parse({ orderId }).orderId;
+  reason = reason.trim();
+  if (decision === "FORCE_COMPLETE") assertLiveTradingEnabled();
+  if (reason.trim().length < 10 || reason.length > 2000) {
     throw new OrderFlowError("Admin order decision reason must be at least 10 characters.");
   }
 
   const db = getDb();
   return db.transaction(async (tx) => {
+    await lockAccounting(tx);
     const [order] = await tx
       .select({
         id: orders.id,
@@ -851,11 +903,98 @@ export async function adminResolveOrder({
         throw new OrderFlowError("Ledger account is missing.");
       }
 
+      const reservations = await tx
+        .select({
+          id: inventoryReservations.id,
+          batchId: inventoryReservations.batchId,
+          listingId: inventoryReservations.listingId,
+          quantity: inventoryReservations.quantity
+        })
+        .from(inventoryReservations)
+        .where(
+          and(
+            eq(inventoryReservations.orderId, orderId),
+            isNotNull(inventoryReservations.consumedAt),
+            isNull(inventoryReservations.releasedAt)
+          )
+        )
+        .for("update")
+        .limit(2);
+      const reservation = reservations[0];
+      if (
+        reservations.length !== 1 ||
+        reservation.listingId !== order.listingId ||
+        reservation.quantity !== order.quantity
+      )
+        throw new OrderFlowError("Consumed inventory reservation is missing or inconsistent.");
+      const [batch] = await tx
+        .select({
+          organizationId: productBatches.organizationId,
+          transferredQuantity: productBatches.transferredQuantity
+        })
+        .from(productBatches)
+        .where(eq(productBatches.id, reservation.batchId))
+        .for("update")
+        .limit(1);
+      const [listing] = await tx
+        .select({ batchId: listings.batchId, sellerOrganizationId: listings.sellerOrganizationId })
+        .from(listings)
+        .where(eq(listings.id, order.listingId))
+        .for("update")
+        .limit(1);
+      if (
+        !batch ||
+        batch.organizationId !== order.sellerOrganizationId ||
+        batch.transferredQuantity < order.quantity ||
+        !listing ||
+        listing.batchId !== reservation.batchId ||
+        listing.sellerOrganizationId !== order.sellerOrganizationId
+      )
+        throw new OrderFlowError("Transferred stock is missing or inconsistent.");
+      const completions = await tx
+        .select({ id: ledgerTransactions.id })
+        .from(ledgerTransactions)
+        .where(
+          and(
+            eq(ledgerTransactions.orderId, orderId),
+            eq(ledgerTransactions.type, "ORDER_COMPLETION")
+          )
+        )
+        .limit(2);
+      if (completions.length !== 1)
+        throw new OrderFlowError("Completed ledger transaction is missing or inconsistent.");
+      const originalEntries = await tx
+        .select({
+          accountId: ledgerEntries.accountId,
+          direction: ledgerEntries.direction,
+          amountKurus: ledgerEntries.amountKurus
+        })
+        .from(ledgerEntries)
+        .where(eq(ledgerEntries.transactionId, completions[0].id))
+        .limit(3);
+      if (
+        originalEntries.length !== 2 ||
+        !originalEntries.some(
+          (entry) =>
+            entry.accountId === buyerAccount.id &&
+            entry.direction === "DEBIT" &&
+            entry.amountKurus === order.totalReferenceValueKurus
+        ) ||
+        !originalEntries.some(
+          (entry) =>
+            entry.accountId === sellerAccount.id &&
+            entry.direction === "CREDIT" &&
+            entry.amountKurus === order.totalReferenceValueKurus
+        )
+      )
+        throw new OrderFlowError("Completed ledger entries are inconsistent.");
+
       const [ledgerTransaction] = await tx
         .insert(ledgerTransactions)
         .values({
           type: "REVERSAL",
           description: "Admin approved return/refund reversal.",
+          reversalOfTransactionId: completions[0].id,
           adminReason: reason,
           orderId,
           createdByUserId: actor.id
@@ -877,30 +1016,26 @@ export async function adminResolveOrder({
         }
       ]);
 
-      const [reservation] = await tx
-        .select({ batchId: inventoryReservations.batchId })
-        .from(inventoryReservations)
-        .where(eq(inventoryReservations.orderId, orderId))
-        .limit(1);
-
-      if (reservation) {
-        await tx
-          .update(productBatches)
-          .set({
-            availableQuantity: sql`${productBatches.availableQuantity} + ${order.quantity}`,
-            transferredQuantity: sql`${productBatches.transferredQuantity} - ${order.quantity}`,
-            updatedAt: new Date()
-          })
-          .where(eq(productBatches.id, reservation.batchId));
-        await tx
-          .update(listings)
-          .set({
-            quantityAvailable: sql`${listings.quantityAvailable} + ${order.quantity}`,
-            status: "ACTIVE",
-            updatedAt: new Date()
-          })
-          .where(eq(listings.id, order.listingId));
-      }
+      await tx
+        .update(productBatches)
+        .set({
+          availableQuantity: sql`${productBatches.availableQuantity} + ${order.quantity}`,
+          transferredQuantity: sql`${productBatches.transferredQuantity} - ${order.quantity}`,
+          updatedAt: new Date()
+        })
+        .where(eq(productBatches.id, reservation.batchId));
+      await tx
+        .update(listings)
+        .set({
+          quantityAvailable: sql`${listings.quantityAvailable} + ${order.quantity}`,
+          status: sql`case when ${listings.status} in ('ACTIVE', 'PARTIALLY_RESERVED', 'SOLD_OUT') then 'PENDING_REVIEW'::listing_status else ${listings.status} end`,
+          updatedAt: new Date()
+        })
+        .where(eq(listings.id, order.listingId));
+      await tx
+        .update(inventoryReservations)
+        .set({ releasedAt: new Date() })
+        .where(eq(inventoryReservations.id, reservation.id));
 
       const [updated] = await tx
         .update(orders)

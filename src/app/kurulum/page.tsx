@@ -1,5 +1,8 @@
 import { CheckCircle2, CircleAlert } from "lucide-react";
 import { getSetupStatus } from "@/lib/setup/status";
+import { getCurrentAppUser } from "@/lib/auth/current-user";
+import { requireAdmin } from "@/lib/auth/authorization";
+import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +17,7 @@ function StatusLine({ ok, label }: { ok: boolean; label: string }) {
 }
 
 export default async function SetupPage() {
+  if (!requireAdmin(await getCurrentAppUser()).allowed) notFound();
   const status = await getSetupStatus();
 
   return (
@@ -31,6 +35,16 @@ export default async function SetupPage() {
             <StatusLine ok={status.env.databaseUrl} label="DATABASE_URL tanımlı" />
             <StatusLine ok={status.env.authSecret} label="AUTH_SECRET tanımlı" />
             <StatusLine ok={status.env.encryptionKey} label="ENCRYPTION_KEY tanımlı" />
+            <StatusLine
+              ok={status.env.emailConfigured}
+              label="E-posta gönderim ayarları geçerli (teslimat testi ayrıca yapılmalı)"
+            />
+            <StatusLine ok={status.env.captchaConfigured} label="CAPTCHA anahtarları tanımlı" />
+            <StatusLine ok={status.env.rateLimitSecret} label="Hız sınırı anahtarı tanımlı" />
+            <StatusLine
+              ok={status.env.legalContentApproved}
+              label="Hukuki içerik işletmeci tarafından gözden geçirildi"
+            />
             <StatusLine ok={status.database.connected} label="PostgreSQL bağlantısı başarılı" />
             <StatusLine
               ok={status.database.connected && status.database.provider === "Neon"}
@@ -40,7 +54,10 @@ export default async function SetupPage() {
               ok={status.storage.connected}
               label="Vercel Blob dosya depolama bağlantısı"
             />
-            <StatusLine ok={status.database.migrationsApplied} label="Migration tabloları mevcut" />
+            <StatusLine
+              ok={status.database.migrationsApplied}
+              label="Güncel güvenlik şeması mevcut"
+            />
             <StatusLine ok={status.data.superAdminExists} label="Super admin kullanıcısı mevcut" />
           </ul>
 

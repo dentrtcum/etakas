@@ -1,6 +1,9 @@
 import { PageHeading } from "@/components/ui";
 import { SubmitForm } from "@/components/submit-form";
 import { FileText, Info } from "lucide-react";
+import { LegalAcceptance } from "@/components/legal-acceptance";
+import { Captcha } from "@/components/captcha";
+import { getLegalReadiness } from "@/lib/legal/config";
 const fields = [
   ["authorizedPersonName", "Yetkili kişi adı soyadı", "text", "name"],
   ["taxNumber", "Vergi numarası", "text", "off"],
@@ -19,13 +22,20 @@ const documents = [
   ["signatureCircularDocument", "İmza sirküleri / yetki belgesi"]
 ] as const;
 export default function RegistrationPage() {
+  const legalReady = getLegalReadiness().isReady;
   return (
     <main className="page-container max-w-4xl">
       <PageHeading
         eyebrow="ARAMIZA KATILIN"
         title="İşletme kaydı"
-        description="Temel bilgilerinizi paylaşın. Başvurunuz incelendikten sonra pazar yerini kullanabilir ve ilan verebilirsiniz."
+        description="İşletmenizi tanıtın, başvurunuzu tek bir yerden takip edin. İşlem yetkileri inceleme ve platformun kullanım şartlarına bağlıdır."
       />
+      {!legalReady && (
+        <p className="notice" role="status">
+          Yeni başvurular için hazırlıklar sürüyor. Başvuru koşulları kesinleştirildikten sonra
+          kayıt gönderimi açılacaktır. Bu sırada formu ve hukuki metinleri inceleyebilirsiniz.
+        </p>
+      )}
       <SubmitForm
         endpoint="/api/organization-applications"
         label="Başvuruyu gönder"
@@ -73,11 +83,14 @@ export default function RegistrationPage() {
                 name="password"
                 type="password"
                 autoComplete="new-password"
-                minLength={8}
-                maxLength={160}
+                minLength={12}
+                maxLength={128}
                 required
               />
-              <small>En az 8 karakter kullanın.</small>
+              <small>
+                12–128 karakter kullanın. Size özel, başka hesaplarda kullanmadığınız uzun bir
+                parola seçin.
+              </small>
             </label>
           </div>
         </section>
@@ -107,7 +120,8 @@ export default function RegistrationPage() {
           <p className="notice">
             <Info size={18} />
             Belgeler isteğe bağlıdır; başvurunuzun incelenmesini kolaylaştırmak için eklemeniz
-            önerilir. PDF veya görsel yükleyebilirsiniz. Toplam dosya boyutu en fazla 4 MB.
+            önerilir. PDF veya görsel yükleyebilirsiniz. Toplam dosya boyutu en fazla 4 MB. Gereksiz
+            kişisel bilgileri kapatın; hasta veya sağlık bilgisi yüklemeyin.
           </p>
           <div className="form-grid">
             {documents.map(([name, label]) => (
@@ -128,16 +142,8 @@ export default function RegistrationPage() {
             ))}
           </div>
         </section>
-        <div className="panel-card grid gap-4">
-          <label className="check-label">
-            <input name="kvkkAccepted" type="checkbox" required />
-            Başvuru ve belgelerimin işletme doğrulaması amacıyla işlenmesini kabul ediyorum.
-          </label>
-          <label className="check-label">
-            <input name="termsAccepted" type="checkbox" required />
-            Paylaştığım bilgilerin doğruluğunu ve platform kullanım koşullarını kabul ediyorum.
-          </label>
-        </div>
+        <LegalAcceptance />
+        <Captcha action="register" />
       </SubmitForm>
     </main>
   );

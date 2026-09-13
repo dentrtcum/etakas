@@ -4,6 +4,7 @@ import { organizationAddresses, organizationDocuments, organizations } from "@/l
 import { decryptField } from "@/lib/encryption/field-crypto";
 import { serverEnv } from "@/lib/env";
 import type { OrganizationReviewStatus } from "@/modules/verification/organization-review";
+import { assertAdminRead } from "@/lib/db/access";
 
 const reviewQueueStatuses = [
   "SUBMITTED",
@@ -27,6 +28,7 @@ function decryptForAdmin(encryptedValue: string) {
 }
 
 export async function listOrganizationReviewQueue(page = 1) {
+  await assertAdminRead();
   const db = getDb();
   const rows = await db
     .select({

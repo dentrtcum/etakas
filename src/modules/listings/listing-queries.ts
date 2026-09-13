@@ -1,4 +1,5 @@
-import { desc, eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray, sql } from "drizzle-orm";
+import { assertAdminRead } from "@/lib/db/access";
 import { getDb } from "@/lib/db/client";
 import {
   listingDocuments,
@@ -19,6 +20,7 @@ const listingQueueStatuses = [
 ] as const satisfies ListingReviewStatus[];
 
 export async function listListingReviewQueue(page = 1) {
+  await assertAdminRead();
   const db = getDb();
   const rows = await db
     .select({
@@ -30,7 +32,7 @@ export async function listListingReviewQueue(page = 1) {
       sellerPublicAlias: organizations.publicAlias,
       sellerProvince: organizations.province,
       sellerDistrict: organizations.district,
-      productName: productCatalog.name,
+      productName: sql<string>`coalesce(${productBatches.submittedName}, ${productCatalog.name})`,
       productType: productCatalog.type,
       productGtin: productCatalog.gtin,
       batchId: productBatches.id

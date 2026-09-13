@@ -5,6 +5,7 @@ import {
 } from "@/modules/organizations/application-service";
 import { decryptField } from "@/lib/encryption/field-crypto";
 import type { OrganizationApplication } from "@/modules/organizations/organization-application";
+import { LEGAL_VERSION } from "@/lib/legal/version";
 
 const secret = "local-development-secret-with-at-least-32-chars";
 
@@ -19,8 +20,9 @@ const application: OrganizationApplication = {
   province: "Istanbul",
   district: "Kadikoy",
   address: "Sentetik Mahallesi Test Caddesi No: 1",
-  kvkkAccepted: true,
-  termsAccepted: true
+  privacyAcknowledged: true,
+  termsAccepted: true,
+  legalVersion: LEGAL_VERSION
 };
 
 describe("organization application persistence mapping", () => {
@@ -28,7 +30,7 @@ describe("organization application persistence mapping", () => {
     const insert = buildOrganizationInsert(application, secret);
 
     expect(insert.status).toBe("SUBMITTED");
-    expect(insert.legalNameEncrypted).toMatch(/^v1\./);
+    expect(insert.legalNameEncrypted).toMatch(/^v2\./);
     expect(insert.taxNumberEncrypted).not.toContain(application.taxNumber);
     expect(insert.ownerIdentityNumberEncrypted).not.toContain(application.ownerIdentityNumber);
     expect(decryptField(insert.legalNameEncrypted, secret)).toBe("Doğrulanmış Eczane");

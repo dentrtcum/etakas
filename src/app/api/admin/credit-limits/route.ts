@@ -1,3 +1,4 @@
+import { mutationRoute } from "@/lib/http/mutation";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
@@ -6,18 +7,20 @@ import { getDb } from "@/lib/db/client";
 import { getCurrentAppUser } from "@/lib/auth/current-user";
 import { requireAdmin } from "@/lib/auth/authorization";
 import { organizations, auditLogs, ledgerAccounts } from "@/lib/db/schema";
+import { lockAccounting } from "@/modules/ledger/accounting-lock";
 const inputSchema = z.object({
   organizationId: z.string().uuid(),
   creditLimit: z.coerce.number().nonnegative().max(1000000),
   reason: z.string().trim().min(10).max(2000)
 });
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const actor = await getCurrentAppUser();
   if (!actor || !requireAdmin(actor).allowed) return new Response(null, { status: 403 });
   const parsed = inputSchema.safeParse(await request.json());
   if (!parsed.success) return new Response(null, { status: 400 });
   const input = parsed.data;
   const updated = await getDb().transaction(async (tx) => {
+    await lockAccounting(tx);
     await tx
       .select({ id: ledgerAccounts.id })
       .from(ledgerAccounts)
@@ -50,3 +53,5 @@ export async function POST(request: Request) {
   });
   return NextResponse.json({ ok: updated }, { status: updated ? 200 : 404 });
 }
+
+export const POST = mutationRoute("src/app/api/admin/credit-limits", handlePost);

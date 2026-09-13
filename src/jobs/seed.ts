@@ -21,6 +21,15 @@ if (process.env.NODE_ENV === "production") {
   throw new Error("Seed cannot run in production.");
 }
 
+if (
+  !serverEnv.DATABASE_URL ||
+  !["localhost", "127.0.0.1", "::1", "[::1]"].includes(new URL(serverEnv.DATABASE_URL).hostname)
+) {
+  throw new Error(
+    "Synthetic seeding is restricted to a local database; remote/production databases are not allowed."
+  );
+}
+
 if (!serverEnv.DATABASE_URL) {
   throw new Error("DATABASE_URL is required for db:seed.");
 }
@@ -87,7 +96,10 @@ await db.transaction(async (tx) => {
       .onConflictDoNothing();
 
     if (organization.status === "APPROVED") {
-      await tx.insert(ledgerAccounts).values({ organizationId: organization.id }).onConflictDoNothing();
+      await tx
+        .insert(ledgerAccounts)
+        .values({ organizationId: organization.id })
+        .onConflictDoNothing();
     }
   }
 

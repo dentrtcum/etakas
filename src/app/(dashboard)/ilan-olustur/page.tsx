@@ -2,8 +2,9 @@ import { PageHeading, EmptyState } from "@/components/ui";
 import { SubmitForm } from "@/components/submit-form";
 import { getAccountContext } from "@/modules/organizations/account-queries";
 import { BarcodeInput } from "./barcode-input";
+import { requireOrganizationAccess } from "@/lib/auth/authorization";
 export default async function CreateListingPage() {
-  const { organization } = await getAccountContext();
+  const { actor, organization } = await getAccountContext();
   if (organization?.status !== "APPROVED")
     return (
       <main className="page-container">
@@ -16,6 +17,25 @@ export default async function CreateListingPage() {
         />
       </main>
     );
+  if (
+    !requireOrganizationAccess(actor, organization.id, [
+      "ORGANIZATION_OWNER",
+      "ORGANIZATION_MANAGER",
+      "INVENTORY_MANAGER"
+    ]).allowed
+  ) {
+    return (
+      <main className="page-container">
+        <PageHeading eyebrow="İLAN YÖNETİMİ" title="Yeni ilan" />
+        <EmptyState
+          title="İlan oluşturma yetkiniz bulunmuyor"
+          description="Bu işlem için işletme sahibi, yöneticisi veya stok sorumlusu yetkisi gerekiyor."
+          href="/ilanlarim"
+          label="İlanları görüntüle"
+        />
+      </main>
+    );
+  }
   return (
     <main className="page-container max-w-4xl">
       <PageHeading

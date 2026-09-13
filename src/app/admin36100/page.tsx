@@ -18,6 +18,8 @@ import { listOrganizationReviewQueue } from "@/modules/verification/review-queri
 import { listListingReviewQueue } from "@/modules/listings/listing-queries";
 import { listAdminOrderQueue } from "@/modules/orders/order-queries";
 import { readPage } from "@/modules/organizations/account-queries";
+import { listAdminUsers } from "@/modules/admin/user-queries";
+export const metadata = { title: "Yönetim merkezi", robots: { index: false, follow: false } };
 const labels: Record<string, string> = {
   START_REVIEW: "İncelemeye al",
   REQUEST_ADDITIONAL_DOCUMENT: "Ek belge iste",
@@ -69,15 +71,23 @@ export default async function AdminPage({
   if (!requireAdmin(actor).allowed) redirect("/giris?next=/admin36100");
   const params = await searchParams;
   const page = readPage(params.page);
-  const tab = ["organizations", "listings", "orders"].includes(params.tab ?? "")
+  const tab = ["organizations", "listings", "orders", "users"].includes(params.tab ?? "")
     ? params.tab!
     : "organizations";
-  const [orgs, items, orders] = await Promise.all([
+  const [orgs, items, orders, accounts] = await Promise.all([
     tab === "organizations" ? listOrganizationReviewQueue(page) : Promise.resolve([]),
     tab === "listings" ? listListingReviewQueue(page) : Promise.resolve([]),
-    tab === "orders" ? listAdminOrderQueue(page) : Promise.resolve([])
+    tab === "orders" ? listAdminOrderQueue(page) : Promise.resolve([]),
+    tab === "users" ? listAdminUsers(page) : Promise.resolve([])
   ]);
-  const rows = tab === "organizations" ? orgs : tab === "listings" ? items : orders;
+  const rows =
+    tab === "organizations"
+      ? orgs
+      : tab === "listings"
+        ? items
+        : tab === "orders"
+          ? orders
+          : accounts;
   return (
     <main className="page-container">
       <PageHeading
@@ -94,7 +104,8 @@ export default async function AdminPage({
         {[
           ["organizations", "İşletmeler"],
           ["listings", "İlanlar"],
-          ["orders", "Sipariş ve itirazlar"]
+          ["orders", "Sipariş ve itirazlar"],
+          ["users", "Kullanıcı güvenliği"]
         ].map(([key, label]) => (
           <Link
             className={`button ${tab === key ? "button-primary" : "button-secondary"}`}
@@ -106,6 +117,69 @@ export default async function AdminPage({
         ))}
       </nav>
       <div className="grid gap-5">
+        {tab === "users" &&
+          accounts.slice(0, 20).map((account) => (
+            <article className="panel-card" key={account.id}>
+              <h2 className="panel-title">{account.name}</h2>
+              <p className="subtext">
+                {account.email} · {account.superAdmin ? "Süper admin" : "İşletme kullanıcısı"}
+              </p>
+              <p className="subtext my-4">
+                {account.disabledAt
+                  ? "Yönetici tarafından kilitli"
+                  : account.lockedUntil && account.lockedUntil > new Date()
+                    ? "Geçici giriş kilidi"
+                    : "Hesap etkin"}{" "}
+                · {account.emailVerified ? "E-posta doğrulandı" : "E-posta doğrulaması bekleniyor"}
+              </p>
+              <div className="grid md:grid-cols-2 gap-5">
+                <div>
+                  <h3 className="font-semibold mb-2">Parola kurtarma</h3>
+                  <p className="subtext mb-3">
+                    Bağlantı kullanıcının kayıtlı e-postasına gider. Yeni parolayı kullanıcı
+                    belirler.
+                  </p>
+                  <SubmitForm
+                    endpoint="/api/admin/users/password-reset"
+                    json
+                    values={{ userId: account.id }}
+                    label="Yenileme bağlantısı gönder"
+                    successMessage="Parola yenileme bağlantısı gönderildi."
+                  >
+                    <label>
+                      İşlem gerekçesi
+                      <textarea name="reason" minLength={10} maxLength={1000} required rows={2} />
+                    </label>
+                  </SubmitForm>
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-2">Erişim yönetimi</h3>
+                  <SubmitForm
+                    endpoint="/api/admin/users/security"
+                    json
+                    values={{ userId: account.id }}
+                    label="Güvenlik işlemini uygula"
+                    successMessage="İşlem uygulandı; mevcut oturumlar sonlandırıldı."
+                  >
+                    <label>
+                      İşlem
+                      <select name="action" required>
+                        <option value="REVOKE_SESSIONS">Tüm oturumları kapat</option>
+                        <option value="UNLOCK">Hesap kilidini kaldır</option>
+                        {account.id !== actor?.id && !account.superAdmin && (
+                          <option value="LOCK">Hesabı kilitle</option>
+                        )}
+                      </select>
+                    </label>
+                    <label>
+                      İşlem gerekçesi
+                      <textarea name="reason" minLength={10} maxLength={1000} required rows={2} />
+                    </label>
+                  </SubmitForm>
+                </div>
+              </div>
+            </article>
+          ))}
         {tab === "organizations" &&
           orgs.slice(0, 20).map((row) => {
             const decisions = getAllowedOrganizationReviewDecisions(row.status);

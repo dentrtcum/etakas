@@ -2,14 +2,12 @@ import {
   adminRoles,
   hasAnyRole,
   isAdmin,
-  requiresAdminTotp,
   type AppRole,
   type AppSessionUser
 } from "@/lib/auth/roles";
 
 export type AuthorizationResult =
-  | { allowed: true }
-  | { allowed: false; reason: "UNAUTHENTICATED" | "FORBIDDEN" | "ADMIN_TOTP_REQUIRED" };
+  { allowed: true } | { allowed: false; reason: "UNAUTHENTICATED" | "FORBIDDEN" };
 
 export function requireAuthenticated(user: AppSessionUser | null | undefined): AuthorizationResult {
   return user ? { allowed: true } : { allowed: false, reason: "UNAUTHENTICATED" };
@@ -33,10 +31,6 @@ export function requireAdmin(user: AppSessionUser | null | undefined): Authoriza
   const roleResult = requireRoles(user, adminRoles);
   if (!roleResult.allowed) return roleResult;
 
-  if (requiresAdminTotp(user)) {
-    return { allowed: false, reason: "ADMIN_TOTP_REQUIRED" };
-  }
-
   return { allowed: true };
 }
 
@@ -45,14 +39,16 @@ export function requireOrganizationAccess(
   organizationId: string,
   allowedRoles: readonly AppRole[]
 ): AuthorizationResult {
-  const roleResult = requireRoles(user, allowedRoles);
-  if (!roleResult.allowed) return roleResult;
+  if (!user) return { allowed: false, reason: "UNAUTHENTICATED" };
 
   if (isAdmin(user)) {
     return { allowed: true };
   }
 
-  if (user?.organizationIds.includes(organizationId)) {
+  if (
+    user.organizationIds.includes(organizationId) &&
+    user.organizationRoles?.[organizationId]?.some((role) => allowedRoles.includes(role))
+  ) {
     return { allowed: true };
   }
 

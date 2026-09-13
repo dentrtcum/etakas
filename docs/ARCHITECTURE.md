@@ -1,51 +1,35 @@
-# Architecture
+# Mimari
 
-## Stack
+Uygulama Next.js App Router ve React Server Components, TypeScript, PostgreSQL/Drizzle ORM, özel Vercel Blob, Tailwind CSS, Vitest ve Playwright kullanır. Sürüm kilidi `package-lock.json` içindedir. Üretim hedefi Vercel ve Neon'dur; bu mimari tanımı canlı bağlantı testi değildir.
 
-- Next.js App Router with React Server Components.
-- TypeScript strict mode.
-- PostgreSQL on a Vercel-compatible provider, preferably Neon.
-- Drizzle ORM and Drizzle Kit for schema and migrations.
-- Better Auth for authentication.
-- Tailwind CSS and accessible component primitives.
-- Vitest and Playwright for automated tests.
+## Sorumluluklar
 
-## Why Drizzle
+- `src/app`: Sunucuda sayfalar, API uçları ve kullanıcı akışları.
+- `src/modules`: İşletme, ilan, sipariş, stok, bakiye ve uyum kuralları.
+- `src/lib/auth`: Parola, e-posta challenge, oturum, rol ve nesne erişimi.
+- `src/lib/security` ve `src/lib/http`: Origin, CAPTCHA, rate limit, gövde sınırı ve hata yanıtı.
+- `src/lib/db`: Şema, bağlantı ve yetki denetimli okumalar.
+- `src/lib/legal`: Sürümlemeli hukuki metinler ve işletmeci bilgileri.
+- `src/lib/email`: Gmail SMTP veya Resend ile işlem e-postaları.
 
-Drizzle is selected over Prisma because E-Takas relies on explicit database constraints, transactional flows, immutable ledger tables and SQL migrations that should stay close to PostgreSQL semantics.
+## Kimlik doğrulama
 
-## Module Boundaries
+Uygulama kendi PostgreSQL oturumlarını kullanır; eski Better Auth catch-all API kaldırılmıştır. Parola doğrulanınca, tarayıcıya bağlı süreli e-posta kodu oluşturulur. Kod başarılı doğrulanınca rastgele oturum anahtarı HttpOnly çerezine yazılır; veritabanında yalnızca özeti bulunur. Oturumda e-posta doğrulama zamanı ve kullanıcının `authVersion` değeri tutulur.
 
-Domain rules live under `src/modules/*` and data access under `src/lib/db`. React components do not own trading policy, authorization, ledger, stock or legal-mode decisions.
+Parola değişimi, kalıcı kilit veya yönetici tarafından oturum iptali sürümü artırarak eski oturumları geçersiz kılar. E-posta doğrulama tek seferlik kayıt bayrağı değildir; her yeni girişte uygulanır. Parola kurtarma bağlantısı süreli ve tek kullanımlıktır. Rate limit PostgreSQL'de paylaşıldığından Vercel örnekleri arasında bellek sayacına dayanmaz.
 
-## Phase 2 Domain Baseline
+Global `SUPER_ADMIN` rolü işletme üyeliklerinden ayrıdır. İşletme rolü aynı kullanıcının diğer işletmelerine taşınmaz. Yönetici kişisel verileri görebilir; işletme kullanıcılarına nesne bazlı erişim uygulanır. TOTP uygulanmış bir faktör değildir.
 
-- `TradingPolicyService` starts as a default-deny policy module for high-risk categories and cross-organization medicine visibility.
-- `LedgerService` starts with integer kuruş validation and double-entry balancing helpers.
-- `InventoryService` starts with quantity conservation and reservation/release helpers.
-- Drizzle schema and SQL migration are both checked into the repo so schema intent is reviewable before a live database exists.
+## Dosya ve kişisel veri
 
-## Phase 3 Auth Baseline
+Dosya imzası/türü, toplam boyut ve dosya sayısı denetlenir; görseller yeniden kodlanır. Belge indirme özel API üzerinden izin kontrolü, özel önbellek başlıkları ve denetim kaydıyla yapılır. Antivirüs taraması kapsam dışındadır.
 
-- Better Auth is mounted under `/api/auth/[...all]` with Node.js runtime, Drizzle adapter, email/password auth and two-factor plugin support.
-- Application authorization is centralized in `src/lib/auth/authorization.ts` and must be reused by server actions, route handlers and admin pages.
-- Admin access requires both an admin role and TOTP enrollment; organization users are constrained by organization membership.
-- Organization applications are validated through a Zod schema before persistence; audit summaries intentionally omit raw tax, license, address and phone values.
+Hassas alanlar AES-256-GCM ile şifrelenir. Yeni format anahtar kimliği ve AAD içerir; eski kayıtlar çözülmeye devam eder. Arama/tekillik özetleri ayrı anahtar bağımlılığı taşır: şifre çözme halkası eklemek bu özetleri yeniden üretmez. Anahtar rotasyonu [DATABASE.md](DATABASE.md) uyarınca planlanmalıdır.
 
-## Listing Baseline
+## İşlem tutarlılığı
 
-- Inventory listing submission creates a product batch and a `PENDING_REVIEW` listing in one transaction.
-- Sensitive lot and invoice fields are encrypted before persistence.
-- Admin approval is required before a listing can become `ACTIVE`.
-- High-risk categories such as cold-chain, biological and non-standard control categories are blocked by default.
+İlanlar inceleme durumunda oluşturulur. İşletmeye ait sunulan ürün adı parti üzerinde tutulur; bir işletme ortak ürün kataloğu adını değiştiremez. Yükleme başarılı, veritabanı işlemi başarısız olduğunda yüklenen dosyalar temizlenir.
 
-## Order Baseline
+Sipariş oluşturma, rezervasyon, bakiye blokesi, iptal ve tamamlama veritabanı işlemleri içinde yürür. Muhasebe değişiklikleri ortak PostgreSQL advisory lock ile sıraya alınır; bu tercih düşük hacimde tutarlılığı önceler. Idempotency anahtarı alıcı işletmeyle birlikte benzersizdir. Tamamlama satıcı beyanı ve alıcı onayıyla olur; süreye bağlı otomatik tamamlama yoktur. İade ve itirazlar gerekçeli yönetici işlemleridir.
 
-- Marketplace listing visibility is server-side and hides human medicines from veterinary organizations.
-- Order creation locks the listing, batch and buyer ledger account in one PostgreSQL transaction.
-- Balance holds and inventory reservations are created atomically with the order.
-- Cancellation releases balance and stock reservations.
-- Completion consumes the hold, transfers reserved stock and posts balanced ledger entries.
-- Seller delivery declaration moves the order to buyer confirmation; buyer confirmation completes the order.
-- There is no timed automatic completion or Vercel Cron dependency.
-- Disputes, cancellation, forced completion and completed-order refunds are admin-controlled.
+Hukuki içerik ve canlı takas ayrı hazırlık kontrollerine bağlıdır. Yazılım mevcut hâliyle resmî ilaç takip sisteminin yerini almaz. Kontrollerin gerçek hizmetler ve eşzamanlı isteklerle doğrulanması sonraki test aşamasıdır.

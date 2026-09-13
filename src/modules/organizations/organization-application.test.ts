@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { LEGAL_VERSION } from "@/lib/legal/version";
 import {
   createPublicAlias,
   toSafeApplicationAuditSummary,
@@ -16,8 +17,9 @@ const validApplication = {
   province: "Istanbul",
   district: "Kadikoy",
   address: "Sentetik Mahallesi Test Caddesi No: 1",
-  kvkkAccepted: true,
-  termsAccepted: true
+  privacyAcknowledged: true,
+  termsAccepted: true,
+  legalVersion: LEGAL_VERSION
 } as const;
 
 describe("organization application", () => {
@@ -34,9 +36,15 @@ describe("organization application", () => {
     });
   });
 
-  it("requires KVKK and terms acceptance", () => {
+  it("requires privacy acknowledgment and the current terms version", () => {
     expect(() =>
-      validateOrganizationApplication({ ...validApplication, kvkkAccepted: false })
+      validateOrganizationApplication({ ...validApplication, privacyAcknowledged: false })
+    ).toThrow();
+    expect(() =>
+      validateOrganizationApplication({ ...validApplication, termsAccepted: false })
+    ).toThrow();
+    expect(() =>
+      validateOrganizationApplication({ ...validApplication, legalVersion: "stale-version" })
     ).toThrow();
   });
 
@@ -49,8 +57,9 @@ describe("organization application", () => {
       district: "Kadikoy",
       emailDomain: "example.invalid",
       hasOwnerIdentityNumber: true,
-      kvkkAccepted: true,
-      termsAccepted: true
+      privacyAcknowledged: true,
+      termsAccepted: true,
+      legalVersion: LEGAL_VERSION
     });
   });
 

@@ -3,6 +3,10 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { auditLogs, ledgerAccounts, organizationReviews, organizations } from "@/lib/db/schema";
 import { type AppSessionUser } from "@/lib/auth/roles";
+import { requireAdmin } from "@/lib/auth/authorization";
+import { SecurityError } from "@/lib/security/request-guards";
+import { lockAccounting } from "@/modules/ledger/accounting-lock";
+import { z } from "zod";
 import {
   assertReviewReason,
   nextOrganizationStatus,
@@ -21,11 +25,15 @@ export async function reviewOrganizationApplication({
   decision: OrganizationReviewDecision;
   reason: string;
 }) {
+  if (!requireAdmin(actor).allowed) throw new SecurityError("FORBIDDEN", 403);
+  organizationId = z.string().uuid().parse(organizationId);
+  reason = z.string().trim().max(2000).parse(reason);
   assertReviewReason(reason);
 
   const db = getDb();
 
   return db.transaction(async (tx) => {
+    await lockAccounting(tx);
     const [organization] = await tx
       .select({ id: organizations.id, status: organizations.status })
       .from(organizations)
@@ -65,10 +73,7 @@ export async function reviewOrganizationApplication({
     });
 
     if (nextStatus === "APPROVED") {
-      await tx
-        .insert(ledgerAccounts)
-        .values({ organizationId })
-        .onConflictDoNothing();
+      await tx.insert(ledgerAccounts).values({ organizationId }).onConflictDoNothing();
     }
 
     await tx.insert(auditLogs).values({

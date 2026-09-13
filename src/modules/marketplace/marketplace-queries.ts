@@ -1,4 +1,5 @@
-import { and, desc, eq, ne, gt, ilike, or } from "drizzle-orm";
+import { and, desc, eq, ne, gt, ilike, or, sql, inArray } from "drizzle-orm";
+import { assertOrganizationRead } from "@/lib/db/access";
 import { getDb } from "@/lib/db/client";
 import { listings, organizations, productBatches, productCatalog } from "@/lib/db/schema";
 import { assertMarketplaceVisibility } from "@/modules/marketplace/marketplace-policy";
@@ -9,6 +10,7 @@ export async function listMarketplaceListingsForOrganization(
   search = "",
   page = 1
 ) {
+  await assertOrganizationRead(organizationId);
   const db = getDb();
   const [buyer] = await db
     .select({ id: organizations.id, type: organizations.type, status: organizations.status })
@@ -28,7 +30,7 @@ export async function listMarketplaceListingsForOrganization(
       sellerPublicAlias: organizations.publicAlias,
       sellerProvince: organizations.province,
       sellerDistrict: organizations.district,
-      productName: productCatalog.name,
+      productName: sql<string>`coalesce(${productBatches.submittedName}, ${productCatalog.name})`,
       productType: productCatalog.type,
       productGtin: productCatalog.gtin,
       quantityAvailable: listings.quantityAvailable,
@@ -41,7 +43,7 @@ export async function listMarketplaceListingsForOrganization(
     .innerJoin(productCatalog, eq(productCatalog.id, productBatches.productId))
     .where(
       and(
-        eq(listings.status, "ACTIVE"),
+        inArray(listings.status, ["ACTIVE", "PARTIALLY_RESERVED"]),
         gt(listings.quantityAvailable, 0),
         gt(productBatches.expiryDate, new Date().toISOString().slice(0, 10)),
         eq(productCatalog.isActive, true),
@@ -52,6 +54,7 @@ export async function listMarketplaceListingsForOrganization(
         search
           ? or(
               ilike(productCatalog.name, `%${search.slice(0, 120)}%`),
+              ilike(productBatches.submittedName, `%${search.slice(0, 120)}%`),
               ilike(productCatalog.gtin, `%${search.slice(0, 120)}%`)
             )
           : undefined,

@@ -13,46 +13,44 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx src/jobs/seed.ts",
-    "db:bootstrap-admin": "tsx src/jobs/bootstrap-admin.ts",
-    "db:create-test-pharmacy": "tsx src/jobs/create-test-pharmacy.ts"
+    "db:bootstrap-admin": "tsx src/jobs/bootstrap-admin.ts"
   },
   "dependencies": {
-    "@hookform/resolvers": "5.4.0",
-    "@neondatabase/serverless": "1.1.0",
-    "@paralleldrive/cuid2": "3.3.0",
     "@t3-oss/env-nextjs": "0.13.11",
-    "@vercel/blob": "2.4.0",
-    "better-auth": "1.6.15",
-    "class-variance-authority": "0.7.1",
-    "clsx": "2.1.1",
-    "date-fns": "4.4.0",
+    "@vercel/blob": "2.8.0",
     "drizzle-orm": "0.45.2",
-    "file-type": "22.0.1",
-    "lucide-react": "1.17.0",
-    "next": "16.2.7",
+    "file-type": "22.0.2",
+    "lucide-react": "1.42.0",
+    "next": "16.3.4",
+    "nodemailer": "10.0.1",
     "pino": "10.3.1",
     "postgres": "3.4.9",
-    "react": "19.2.7",
-    "react-dom": "19.2.7",
-    "react-hook-form": "7.78.0",
-    "sharp": "0.34.5",
-    "tailwind-merge": "3.4.0",
-    "zod": "4.4.3"
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "sharp": "0.35.4",
+    "zod": "4.5.4"
   },
   "devDependencies": {
-    "@playwright/test": "1.60.0",
-    "@tailwindcss/postcss": "4.1.17",
-    "@types/node": "24.10.1",
-    "@types/react": "19.2.7",
-    "@types/react-dom": "19.2.3",
+    "@playwright/test": "1.63.0",
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "24.13.3",
+    "@types/nodemailer": "8.0.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
     "drizzle-kit": "0.31.10",
-    "eslint": "9.39.1",
-    "eslint-config-next": "16.2.7",
-    "prettier": "3.7.4",
-    "tailwindcss": "4.3.0",
-    "tsx": "4.21.0",
+    "esbuild": "0.28.2",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.4",
+    "prettier": "3.9.6",
+    "tailwindcss": "4.3.3",
+    "tsx": "4.23.13",
     "typescript": "6.0.3",
-    "vitest": "4.1.8"
+    "vitest": "4.1.11"
+  },
+  "overrides": {
+    "@esbuild-kit/core-utils": {
+      "esbuild": "0.25.12"
+    }
   },
   "engines": {
     "node": ">=22 <25"

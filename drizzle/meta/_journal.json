@@ -29,6 +29,13 @@
       "when": 1781341016530,
       "tag": "0004_narrow_stryfe",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788822000000,
+      "tag": "0005_security_auth",
+      "breakpoints": true
     }
   ]
 }

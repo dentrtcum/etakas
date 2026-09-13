@@ -1,8 +1,10 @@
-import { desc, inArray, eq, or } from "drizzle-orm";
+import { desc, inArray, eq, or, sql } from "drizzle-orm";
+import { assertAdminRead, assertOrganizationRead } from "@/lib/db/access";
 import { getDb } from "@/lib/db/client";
 import { orders, listings, productBatches, productCatalog } from "@/lib/db/schema";
 
 export async function listAdminOrderQueue(page = 1) {
+  await assertAdminRead();
   return getDb()
     .select({
       id: orders.id,
@@ -36,6 +38,7 @@ export async function listAdminOrderQueue(page = 1) {
 }
 
 export async function listOrganizationOrders(organizationId: string, page = 1) {
+  await assertOrganizationRead(organizationId);
   return getDb()
     .select({
       id: orders.id,
@@ -45,7 +48,7 @@ export async function listOrganizationOrders(organizationId: string, page = 1) {
       quantity: orders.quantity,
       total: orders.totalReferenceValueKurus,
       createdAt: orders.createdAt,
-      productName: productCatalog.name
+      productName: sql<string>`coalesce(${productBatches.submittedName}, ${productCatalog.name})`
     })
     .from(orders)
     .innerJoin(listings, eq(listings.id, orders.listingId))

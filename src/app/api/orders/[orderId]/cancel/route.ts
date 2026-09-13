@@ -1,10 +1,14 @@
+import { mutationRoute } from "@/lib/http/mutation";
 import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentAppUser } from "@/lib/auth/current-user";
 import { cancelOrderReservation, OrderFlowError } from "@/modules/orders/order-service";
 
 export const runtime = "nodejs";
 
-export async function POST(_request: NextRequest, context: { params: Promise<{ orderId: string }> }) {
+async function handlePost(
+  _request: NextRequest,
+  context: { params: Promise<{ orderId: string }> }
+) {
   const actor = await getCurrentAppUser();
 
   if (!actor) {
@@ -21,3 +25,5 @@ export async function POST(_request: NextRequest, context: { params: Promise<{ o
     throw error;
   }
 }
+
+export const POST = mutationRoute("src/app/api/orders/[orderId]/cancel", handlePost);

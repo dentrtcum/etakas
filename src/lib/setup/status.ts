@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db/client";
 import { serverEnv } from "@/lib/env";
 import { userRoles, users } from "@/lib/db/schema";
 import { list } from "@vercel/blob";
+import { isEmailConfigured } from "@/lib/email/send";
 
 export type SetupStatus = {
   env: {
@@ -13,6 +14,10 @@ export type SetupStatus = {
     encryptionKey: boolean;
     tradingMode: string;
     legalApprovalConfirmed: boolean;
+    legalContentApproved: boolean;
+    emailConfigured: boolean;
+    captchaConfigured: boolean;
+    rateLimitSecret: boolean;
   };
   database: {
     provider: string;
@@ -34,7 +39,13 @@ export async function getSetupStatus(): Promise<SetupStatus> {
       appUrl: Boolean(serverEnv.APP_URL),
       encryptionKey: Boolean(serverEnv.ENCRYPTION_KEY),
       tradingMode: serverEnv.TRADING_MODE,
-      legalApprovalConfirmed: serverEnv.LEGAL_APPROVAL_CONFIRMED
+      legalApprovalConfirmed: serverEnv.LEGAL_APPROVAL_CONFIRMED,
+      legalContentApproved: serverEnv.LEGAL_CONTENT_APPROVED,
+      emailConfigured: isEmailConfigured(),
+      captchaConfigured: Boolean(
+        serverEnv.TURNSTILE_SECRET_KEY && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+      ),
+      rateLimitSecret: Boolean(serverEnv.AUTH_RATE_LIMIT_SECRET)
     },
     database: {
       provider:
@@ -81,6 +92,13 @@ export async function getSetupStatus(): Promise<SetupStatus> {
         and to_regclass('public.listings') is not null
         and to_regclass('public.orders') is not null
         and to_regclass('public.ledger_entries') is not null
+        and to_regclass('public.security_challenges') is not null
+        and to_regclass('public.rate_limit_buckets') is not null
+        and to_regclass('public.policy_acceptances') is not null
+        and to_regclass('public.orders_buyer_idempotency_key_unique') is not null
+        and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'users' and column_name = 'disabled_at')
+        and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'sessions' and column_name = 'email_verified_at')
+        and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'product_batches' and column_name = 'submitted_name')
         as ok
     `);
 

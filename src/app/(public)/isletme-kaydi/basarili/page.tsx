@@ -9,7 +9,8 @@ export default function SuccessPage() {
         <h1 className="text-3xl font-bold mt-3">Tanıştığımıza memnun olduk.</h1>
         <p className="subtext mt-4">
           İşletme başvurunuz inceleme sırasına eklendi. Hesabınıza giriş yaparak durumunu takip
-          edebilir, eksik belgelerinizi tamamlayabilirsiniz.
+          edebilir, eksik belgelerinizi tamamlayabilirsiniz. Girişte e-postanıza gönderilen tek
+          kullanımlık doğrulama kodunu girmeniz gerekir.
         </p>
         <Link className="button button-primary mt-7" href="/giris">
           Hesabınıza giriş yapın <ArrowRight size={16} />

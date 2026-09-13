@@ -1,19 +1,21 @@
-# Admin Guide
+# Süper admin rehberi
 
-The admin panel is mounted under `/admin36100`. The Phase 3 baseline blocks anonymous access; role-enriched admin checks are centralized in `src/lib/auth/authorization.ts` and will be attached to persisted memberships as the review workflow moves from baseline UI to database-backed mutations.
+Yönetim alanı `/admin36100` adresindedir. E-posta/parola girişi ardından her seferinde e-posta kodu istenir. Sunucu yalnızca `user_roles` tablosunda global `SUPER_ADMIN` rolü bulunan kullanıcıya yetki verir. Bir işletmenin sahibi olmak veya işletme başvurusu yapmak bu yetkiyi sağlamaz.
 
-Initial implementation phases establish the secure project, database schema and audit model. Review workflows are added in later phases.
+## Kullanıcı güvenliği
 
-## Organization Review Baseline
+Kullanıcı güvenliği bölümünde gerekçe belirterek oturumları iptal etme, hesabı kilitleme/kilidi kaldırma ve kayıtlı adrese parola kurtarma e-postası gönderme işlemleri yapılabilir. Yönetici kullanıcının mevcut parolasını göremez veya onun yerine e-posta kodunu doğrulayamaz. Parola yenileme bağlantısını hesap sahibi kullanır; yönetici bir başka alıcı adresi girerek bağlantıyı yönlendiremez.
 
-Admins review applications through a state machine. Applications move from `SUBMITTED` to `UNDER_REVIEW`, then to `APPROVED`, `REJECTED`, `ADDITIONAL_DOCUMENT_REQUIRED` or `SUSPENDED`. Every decision requires a meaningful reason and must be written to audit logs when persistence is connected.
+Geçici deneme kilidi ile yöneticinin koyduğu kalıcı kilit ayrıdır. Parola kurtarma kalıcı kilidi kaldırmaz. Tek süper adminin kendi hesabını veya son süper admini kilitlemesi engellenir. Admin işlemleri gerekçesiyle denetim kaydına yazılır.
 
-Phase 4 adds `/api/admin/organization-reviews`, which requires an authenticated admin with TOTP enabled. Approval creates the organization's ledger account.
+## İşletme, ilan ve siparişler
 
-## Listing Review
+İşletme başvuruları incelenebilir, onaylanabilir, reddedilebilir, ek belge istenebilir veya askıya alınabilir. Belgeler başvuruda isteğe bağlıdır; bu, mevzuattan doğan yetkilerin aranmayacağı anlamına gelmez. Süper admin inceleme için kişisel bilgilere ve özel belgelere erişebilir.
 
-The admin panel also lists `PENDING_REVIEW` and `CHANGES_REQUESTED` listings. Admins can approve, request changes, reject or remove listings. Approval changes the listing to `ACTIVE`; all decisions create audit logs.
+İlanlar onay, değişiklik talebi, ret veya kaldırma kararına tabidir. Başvurunun veya ilanın onaylanması resmî kurum onayı yerine geçmez. Yüklenen dosyalarda antivirüs taraması yapılmadığından belge indirme konusunda işletim sistemi korumaları kullanılmalıdır.
 
-## Order, Dispute and Return Control
+Siparişler otomatik tamamlanmaz: satıcı teslim beyanı verir, alıcı teslimi onaylar. Yönetici gerekçeli itiraz, iptal, zorunlu tamamlama ve iade akışlarını yönetebilir. Canlı işlem kapıları yöneticinin zorunlu tamamlama işleminde de uygulanır. Muhasebe kayıtları doğrudan silinerek/düzenlenerek düzeltilmez; ilgili ters kayıt akışı kullanılır.
 
-Orders are not completed automatically. The seller first declares delivery, then the buyer confirms delivery. If a party disputes delivery or a return is needed, admins use the order section to freeze, cancel, force-complete or refund completed orders with a required reason.
+## İlk kurulum
+
+`db:bootstrap-admin` ilk yönetici kurulumuna ayrılmıştır. Olağan parola yenileme e-postalı kurtarma akışıyla yapılmalıdır. İlk giriş öncesi migration, e-posta ve CAPTCHA kurulumu tamamlanmalıdır; ayrıntılar [DEPLOYMENT.md](DEPLOYMENT.md) dosyasındadır.
