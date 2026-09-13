@@ -242,7 +242,7 @@ button {
 .button-secondary:hover {
   background: #edf3ed;
 }
-.logout-form {
+.logout-control {
   position: relative;
 }
 .logout-error {

@@ -35,23 +35,6 @@ export function requireSameOrigin(request: Request) {
   }
 }
 
-export function requireSameOriginForm(request: Request) {
-  try {
-    requireSameOrigin(request);
-  } catch (error) {
-    if (
-      error instanceof SecurityError &&
-      error.code === "INVALID_ORIGIN" &&
-      !request.headers.get("origin") &&
-      request.headers.get("sec-fetch-site") === "same-origin" &&
-      new URL(request.url).origin === applicationOrigin()
-    ) {
-      return;
-    }
-    throw error;
-  }
-}
-
 export function safeNextPath(value: unknown) {
   if (
     typeof value !== "string" ||

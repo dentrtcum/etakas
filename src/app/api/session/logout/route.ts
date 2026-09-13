@@ -11,13 +11,13 @@ import {
 } from "@/lib/auth/challenges";
 import {
   applicationOrigin,
-  requireSameOriginForm,
+  requireSameOrigin,
   securityErrorResponse
 } from "@/lib/security/request-guards";
 export const runtime = "nodejs";
 export async function POST(request: Request) {
   try {
-    requireSameOriginForm(request);
+    requireSameOrigin(request);
     await clearAppSessionCookie();
     const cookieStore = await cookies();
     const challenge = parseChallengeToken(cookieStore.get(challengeCookieName)?.value);

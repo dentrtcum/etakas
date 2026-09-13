@@ -1,16 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState } from "react";
 
-export function LogoutForm() {
+export function LogoutButton() {
   const router = useRouter();
   const busy = useRef(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
 
-  async function logout(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function logout() {
     if (busy.current) return;
     busy.current = true;
     setPending(true);
@@ -40,8 +39,8 @@ export function LogoutForm() {
   }
 
   return (
-    <form className="logout-form" action="/api/session/logout" method="post" onSubmit={logout}>
-      <button className="button button-secondary" type="submit" disabled={pending}>
+    <div className="logout-control">
+      <button className="button button-secondary" type="button" disabled={pending} onClick={logout}>
         {pending ? "Çıkış yapılıyor…" : "Çıkış yap"}
       </button>
       {error && (
@@ -49,6 +48,6 @@ export function LogoutForm() {
           {error}
         </span>
       )}
-    </form>
+    </div>
   );
 }
