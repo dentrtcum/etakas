@@ -269,6 +269,10 @@ export async function requestPasswordReset(
         idempotencyKey: `reset-${id}`
       });
     } catch (error) {
+      console.error("[security-email] password reset delivery failed", {
+        errorType: error instanceof Error ? error.name : "UnknownError",
+        code: error instanceof SecurityError ? error.code : "UNEXPECTED"
+      });
       await db
         .update(securityChallenges)
         .set({ consumedAt: new Date() })
