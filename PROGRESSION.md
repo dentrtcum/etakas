@@ -4,7 +4,7 @@ Son güncelleme: 18 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 
 ## Güncel durum
 
-- Son doğrulanan uygulama commit'i: `8f7e5c7` (`main`).
+- Son doğrulanan uygulama commit'i: `c3eb091` (`main`, GitHub'a gönderildi).
 - Vercel projesi: `dicrocoellium/etakas`.
 - Eski Vercel adresi çalışıyor: `https://etakas.vercel.app`.
 - Yeni kanonik adres: `https://www.etaks.com.tr`.
@@ -40,7 +40,7 @@ Son güncelleme: 18 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 - [ ] Kurumsal e-posta adresi ve işlem e-postası sağlayıcısını seçmek; alan adı doğrulaması ile SPF, DKIM ve gerekiyorsa DMARC kayıtlarını eklemek.
 - [ ] Gmail geçici göndericisinden kurumsal göndericiye geçip gerçek teslimi yeniden doğrulamak.
 
-## Geliştirmede tamamlanan, henüz yayınlanmayan 0006 kapsamı
+## 0006 platform kapsamı
 
 - [x] Negatif bakiyeyi açık alt kredi sınırı olarak yöneten yapı; isteğe bağlı üst kredi sınırı ve sipariş rezervasyonu/tamamlanmasında iki sınırın denetimi.
 - [x] Admin için işletme bazında veya tüm onaylı işletmelere toplu alt/üst kredi sınırı; alt sınırı doğrudan `+/-` tutarla değiştirme ve mevcut kredi bakiyesini görüntüleme.
@@ -57,7 +57,8 @@ Son güncelleme: 18 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 - [x] Migration: `drizzle/0006_platform_communications.sql`; snapshot zinciri `0005` ile eşleşiyor.
 - [x] Yerel doğrulama: TypeScript, ESLint, 29 dosya / 125 test ve Next.js Production build geçti. Kayıt formu tarayıcıda GLN/işletme adı ve kurumsal bağlantıyla hatasız açıldı.
 - [x] Canlı Neon yedeği açık kullanıcı yetkisiyle alındı; `0006` migration’ı Drizzle ile uygulandı ve şema/kayıt sayıları bağımsız bağlantıyla doğrulandı.
-- [ ] Kod değişikliklerini commit/push etmek, Vercel Production’a dağıtmak ve yeni kimlikli akışları canlıda uçtan uca test etmek.
+- [x] Kod değişiklikleri `c3eb091` commit'iyle GitHub `main` dalına gönderildi.
+- [ ] Vercel Production deployment `dpl_antueWd8q1BpH5ss2fqdCs2CYysH` başlatıldı. Vercel'in 18 Eylül 2026 tarihli “Elevated Errors Triggering Deployments” olayı nedeniyle build makinesi atanamadan `Initializing` durumunda bekliyor. Olay çözüldüğünde deployment sonucunu, alan adı alias'ını ve yeni akışları canlıda doğrulamak.
 
 ## Sonraki kabul ve yayın işleri
 
@@ -92,6 +93,7 @@ Son güncelleme: 18 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 - **18 Eylül:** Cloudflare Hostname Management kaydı eklendikten sonra temiz tarayıcı oturumlarında `110200` kalktı. Turnstile doğrulama kutusu `www.etaks.com.tr` üzerindeki giriş, işletme kaydı ve parola kurtarma sayfalarında hatasız yüklendi.
 - **18 Eylül:** `0006_platform_communications` öncesi canlı Neon yedeği alındı ve arşiv listesi doğrulandı. Migration geçmişi 5'ten 6'ya çıktı; yeni iletişim/destek tabloları ile GLN, üst kredi limiti ve duyuru kolonları doğrulandı. 1 kullanıcı ve 1 işletme korunurken ürün kataloğu, ilan ve sipariş sayıları 0 olarak değişmeden kaldı.
 - **18 Eylül:** 0006 kapsamının son kontrolünde TypeScript, ESLint, 29 dosya / 125 test ve Next.js 16 Production build geçti. Çevrimiçi `npm audit` üretim ve geliştirme bağımlılıklarında 0 bilinen açık bildirdi.
+- **19 Eylül:** `c3eb091` GitHub `main` dalına gönderildi. Vercel Production deployment başlatıldı; resmi Vercel durum sayfasındaki Build & Deploy kısmi kesintisi nedeniyle deployment en az 16 dakika build makinesi atanmadan `Initializing` kaldı. Bu sırada mevcut `www.etaks.com.tr`, `/giris` ve `/isletme-kaydi` sayfaları `200` dönmeye devam etti.
 
 ## Yedek ve devam notları
 
