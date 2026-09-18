@@ -11,9 +11,9 @@ const secret = "local-development-secret-with-at-least-32-chars";
 
 const application: OrganizationApplication = {
   type: "PHARMACY",
-  taxNumber: "1234567890",
+  pharmacyName: "Örnek Eczanesi",
   authorizedPersonName: "Ayse Yilmaz",
-  ownerIdentityNumber: "12345678901",
+  gln: "1234567890123",
   email: "basvuru@example.invalid",
   password: "very-secure-password",
   phone: "+905551112233",
@@ -31,9 +31,9 @@ describe("organization application persistence mapping", () => {
 
     expect(insert.status).toBe("SUBMITTED");
     expect(insert.legalNameEncrypted).toMatch(/^v2\./);
-    expect(insert.taxNumberEncrypted).not.toContain(application.taxNumber);
-    expect(insert.ownerIdentityNumberEncrypted).not.toContain(application.ownerIdentityNumber);
-    expect(decryptField(insert.legalNameEncrypted, secret)).toBe("Doğrulanmış Eczane");
+    expect(insert.glnEncrypted).not.toContain(application.gln);
+    expect(decryptField(insert.glnEncrypted, secret)).toBe(application.gln);
+    expect(decryptField(insert.legalNameEncrypted, secret)).toBe(application.pharmacyName);
   });
 
   it("encrypts address and phone separately", () => {

@@ -57,9 +57,9 @@ async function handlePost(request: NextRequest) {
     await requireCaptcha(request, formData.get("cf-turnstile-response"), "register");
     const application = validateOrganizationApplication({
       type: getString(formData, "type"),
-      taxNumber: getString(formData, "taxNumber"),
+      pharmacyName: getString(formData, "pharmacyName"),
       authorizedPersonName: getString(formData, "authorizedPersonName"),
-      ownerIdentityNumber: getString(formData, "ownerIdentityNumber"),
+      gln: getString(formData, "gln"),
       email: getString(formData, "email"),
       password: getString(formData, "password"),
       phone: getString(formData, "phone"),

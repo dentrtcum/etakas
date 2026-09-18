@@ -10,7 +10,15 @@ import { isLiveTradingEnabled } from "@/modules/compliance/live-trading";
 export default async function MarketplacePage({
   searchParams
 }: {
-  searchParams: Promise<{ q?: string; page?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    page?: string;
+    province?: string;
+    type?: string;
+    minQuantity?: string;
+    expiry?: string;
+    sort?: string;
+  }>;
 }) {
   const { actor, organization } = await getAccountContext();
   const params = await searchParams;
@@ -28,7 +36,33 @@ export default async function MarketplacePage({
         />
       </main>
     );
-  const rows = await listMarketplaceListingsForOrganization(organization.id, q, page);
+  const province = params.province?.trim().slice(0, 80) || "";
+  const productType = ["HUMAN", "VETERINARY"].includes(params.type ?? "")
+    ? (params.type as "HUMAN" | "VETERINARY")
+    : undefined;
+  const minQuantity = Math.max(0, Math.min(100000, Number(params.minQuantity) || 0));
+  const expiresWithinDays = [30, 60, 90, 180].includes(Number(params.expiry))
+    ? Number(params.expiry)
+    : undefined;
+  const sort = ["newest", "expiry", "value_asc", "value_desc"].includes(params.sort ?? "")
+    ? (params.sort as "newest" | "expiry" | "value_asc" | "value_desc")
+    : "newest";
+  const rows = await listMarketplaceListingsForOrganization(
+    organization.id,
+    { search: q, province, productType, minQuantity, expiresWithinDays, sort },
+    page
+  );
+  const pageHref = (nextPage: number) => {
+    const query = new URLSearchParams();
+    if (q) query.set("q", q);
+    if (province) query.set("province", province);
+    if (productType) query.set("type", productType);
+    if (minQuantity) query.set("minQuantity", String(minQuantity));
+    if (expiresWithinDays) query.set("expiry", String(expiresWithinDays));
+    if (sort !== "newest") query.set("sort", sort);
+    query.set("page", String(nextPage));
+    return `/pazar-yeri?${query.toString()}`;
+  };
   const tradingEnabled = isLiveTradingEnabled();
   const canOrder =
     tradingEnabled &&
@@ -65,22 +99,18 @@ export default async function MarketplacePage({
           </Link>
         </p>
       )}
-      <form method="get" className="filter-bar">
-        <label className="sr-only" htmlFor="product-search">
-          Ürün adı veya barkod
-        </label>
-        <input
-          id="product-search"
-          type="search"
-          name="q"
-          defaultValue={q}
-          placeholder="Ürün adı veya barkod ile ara…"
-        />
+      <form method="get" className="marketplace-filters panel-card">
+        <label>Ürün veya barkod<input id="product-search" type="search" name="q" defaultValue={q} placeholder="Ürün adı veya barkod" /></label>
+        <label>İl<input name="province" defaultValue={province} maxLength={80} placeholder="Tümü" /></label>
+        <label>Ürün türü<select name="type" defaultValue={productType ?? ""}><option value="">Tümü</option><option value="HUMAN">Beşeri ilaç</option><option value="VETERINARY">Veteriner ürünü</option></select></label>
+        <label>En az stok<input name="minQuantity" type="number" min={0} max={100000} defaultValue={minQuantity || ""} /></label>
+        <label>SKT aralığı<select name="expiry" defaultValue={expiresWithinDays ?? ""}><option value="">Tümü</option><option value="30">30 gün içinde</option><option value="60">60 gün içinde</option><option value="90">90 gün içinde</option><option value="180">180 gün içinde</option></select></label>
+        <label>Sıralama<select name="sort" defaultValue={sort}><option value="newest">En yeni</option><option value="expiry">SKT yakın</option><option value="value_asc">Değer artan</option><option value="value_desc">Değer azalan</option></select></label>
         <button className="button button-secondary" type="submit">
           <Search size={16} />
-          Ara
+          Filtrele
         </button>
-        {q && (
+        {(q || province || productType || minQuantity || expiresWithinDays || sort !== "newest") && (
           <Link href="/pazar-yeri" className="subtext underline">
             Filtreyi temizle
           </Link>
@@ -99,8 +129,9 @@ export default async function MarketplacePage({
                 <p className="subtext">Barkod {row.productGtin}</p>
                 <p className="subtext flex items-center gap-1 mt-2">
                   <MapPin size={13} />
-                  {row.sellerProvince} · {row.sellerPublicAlias}
+                  <strong>{row.sellerPublicAlias}</strong> · {row.sellerProvince} / {row.sellerDistrict}
                 </p>
+                <Link className="text-link text-xs mt-2 inline-block" href={`/mesajlar?to=${row.sellerOrganizationId}`}>İşletmeye mesaj gönder</Link>
                 <div className="product-details">
                   <div>
                     <p className="subtext">Kullanılabilir</p>
@@ -157,7 +188,7 @@ export default async function MarketplacePage({
         {page > 1 ? (
           <Link
             className="button button-secondary"
-            href={`?q=${encodeURIComponent(q)}&page=${page - 1}`}
+            href={pageHref(page - 1)}
           >
             ← Önceki
           </Link>
@@ -168,7 +199,7 @@ export default async function MarketplacePage({
         {rows.length > 12 ? (
           <Link
             className="button button-secondary"
-            href={`?q=${encodeURIComponent(q)}&page=${page + 1}`}
+            href={pageHref(page + 1)}
           >
             Sonraki →
           </Link>

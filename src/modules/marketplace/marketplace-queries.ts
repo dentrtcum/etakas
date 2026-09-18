@@ -1,4 +1,4 @@
-import { and, desc, eq, ne, gt, ilike, or, sql, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, ne, gt, gte, ilike, lte, or, sql, inArray } from "drizzle-orm";
 import { assertOrganizationRead } from "@/lib/db/access";
 import { getDb } from "@/lib/db/client";
 import { listings, organizations, productBatches, productCatalog } from "@/lib/db/schema";
@@ -7,7 +7,14 @@ import type { OrganizationKind, ProductKind } from "@/modules/compliance/trading
 
 export async function listMarketplaceListingsForOrganization(
   organizationId: string,
-  search = "",
+  filters: {
+    search?: string;
+    province?: string;
+    productType?: "HUMAN" | "VETERINARY";
+    minQuantity?: number;
+    expiresWithinDays?: number;
+    sort?: "newest" | "expiry" | "value_asc" | "value_desc";
+  } = {},
   page = 1
 ) {
   await assertOrganizationRead(organizationId);
@@ -51,18 +58,38 @@ export async function listMarketplaceListingsForOrganization(
         eq(productCatalog.isBiological, false),
         eq(productCatalog.controlCategory, "STANDARD"),
         buyer.type !== "PHARMACY" ? eq(productCatalog.type, "VETERINARY") : undefined,
-        search
+        filters.search
           ? or(
-              ilike(productCatalog.name, `%${search.slice(0, 120)}%`),
-              ilike(productBatches.submittedName, `%${search.slice(0, 120)}%`),
-              ilike(productCatalog.gtin, `%${search.slice(0, 120)}%`)
+              ilike(productCatalog.name, `%${filters.search.slice(0, 120)}%`),
+              ilike(productBatches.submittedName, `%${filters.search.slice(0, 120)}%`),
+              ilike(productCatalog.gtin, `%${filters.search.slice(0, 120)}%`)
+            )
+          : undefined,
+        filters.province ? ilike(organizations.province, filters.province.slice(0, 80)) : undefined,
+        filters.productType ? eq(productCatalog.type, filters.productType) : undefined,
+        filters.minQuantity ? gte(listings.quantityAvailable, filters.minQuantity) : undefined,
+        filters.expiresWithinDays
+          ? lte(
+              productBatches.expiryDate,
+              new Date(Date.now() + filters.expiresWithinDays * 86_400_000)
+                .toISOString()
+                .slice(0, 10)
             )
           : undefined,
         ne(listings.sellerOrganizationId, organizationId),
         eq(organizations.status, "APPROVED")
       )
     )
-    .orderBy(desc(listings.updatedAt), desc(listings.createdAt))
+    .orderBy(
+      filters.sort === "expiry"
+        ? asc(listings.minExpiryDate)
+        : filters.sort === "value_asc"
+          ? asc(listings.unitReferenceValueKurus)
+          : filters.sort === "value_desc"
+            ? desc(listings.unitReferenceValueKurus)
+            : desc(listings.updatedAt),
+      desc(listings.createdAt)
+    )
     .limit(13)
     .offset((page - 1) * 12);
 

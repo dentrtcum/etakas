@@ -3,6 +3,8 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import {
   auditLogs,
+  notifications,
+  organizationMembers,
   listingReviews,
   listings,
   organizations,
@@ -116,6 +118,21 @@ export async function reviewListing({
       decision: nextStatus,
       reason
     });
+    const members = await tx
+      .select({ userId: organizationMembers.userId })
+      .from(organizationMembers)
+      .where(eq(organizationMembers.organizationId, listing.sellerOrganizationId));
+    if (members.length) {
+      await tx.insert(notifications).values(
+        members.map(({ userId }) => ({
+          userId,
+          organizationId: listing.sellerOrganizationId,
+          type: "ADMIN_DECISION",
+          title: "İlan inceleme kararı",
+          body: `Durum: ${nextStatus}\nGerekçe: ${reason}`
+        }))
+      );
+    }
 
     await tx.insert(auditLogs).values({
       actorUserId: actor.id,

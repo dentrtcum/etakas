@@ -35,7 +35,12 @@ export async function listListingReviewQueue(page = 1) {
       productName: sql<string>`coalesce(${productBatches.submittedName}, ${productCatalog.name})`,
       productType: productCatalog.type,
       productGtin: productCatalog.gtin,
-      batchId: productBatches.id
+      activeIngredient: productCatalog.activeIngredient,
+      manufacturer: productCatalog.manufacturer,
+      strength: productCatalog.strength,
+      form: productCatalog.form,
+      batchId: productBatches.id,
+      storageConditions: productBatches.storageConditions
     })
     .from(listings)
     .innerJoin(organizations, eq(organizations.id, listings.sellerOrganizationId))

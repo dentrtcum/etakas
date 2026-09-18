@@ -53,7 +53,12 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             <div className="footer-about">
               <Brand />
               <p>İşletmeler arasında daha verimli stok yönetimi.</p>
-              <p>Platform işletici: {legalOperator.name}</p>
+              <p>
+                Platform işletici:{" "}
+                <a href="https://www.sabotyazilim.com.tr/" target="_blank" rel="noopener noreferrer">
+                  {legalOperator.name}
+                </a>
+              </p>
               <a href={`mailto:${legalOperator.email}`}>{legalOperator.email}</a>
               <address>{legalOperator.address}</address>
             </div>

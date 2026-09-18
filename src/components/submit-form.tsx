@@ -24,6 +24,11 @@ const errors: Record<string, string> = {
   ORGANIZATION_NOT_APPROVED: "İşletmeniz onaylandıktan sonra bu işlemi yapabilirsiniz.",
   PERSISTENCE_NOT_CONFIGURED: "Bağlantı henüz hazır değil. Lütfen daha sonra yeniden deneyin.",
   "Insufficient takas balance.": "Kullanılabilir takas bakiyeniz bu işlem için yeterli değil.",
+  "Seller upper credit limit would be exceeded.":
+    "Satıcı işletmenin üst kredi sınırı bu işlemle aşılacağı için rezervasyon yapılamadı.",
+  BARCODE_ALREADY_EXISTS: "Bu barkod katalogda başka bir ürüne bağlı.",
+  INVALID_MESSAGE: "Mesaj alanını kontrol edin.",
+  INVALID_SUPPORT_REQUEST: "Şikayet veya talep bilgilerini kontrol edin.",
   "Insufficient listing stock.": "İstenen miktar için yeterli stok bulunmuyor.",
   "Listing is not active.": "Bu ilan artık işlem için uygun değil.",
   "Only approved organizations can submit listings.":

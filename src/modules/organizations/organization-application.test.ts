@@ -8,9 +8,9 @@ import {
 
 const validApplication = {
   type: "PHARMACY",
-  taxNumber: "1234567890",
+  pharmacyName: "Örnek Eczanesi",
   authorizedPersonName: "Ayse Yilmaz",
-  ownerIdentityNumber: "12345678901",
+  gln: "1234567890123",
   email: "basvuru@example.invalid",
   password: "very-secure-password",
   phone: "+905551112233",
@@ -32,7 +32,8 @@ describe("organization application", () => {
     expect(validateOrganizationApplication(validApplication)).toMatchObject({
       type: "PHARMACY",
       email: "basvuru@example.invalid",
-      ownerIdentityNumber: "12345678901"
+      pharmacyName: "Örnek Eczanesi",
+      gln: "1234567890123"
     });
   });
 
@@ -56,7 +57,7 @@ describe("organization application", () => {
       province: "Istanbul",
       district: "Kadikoy",
       emailDomain: "example.invalid",
-      hasOwnerIdentityNumber: true,
+      hasGln: true,
       privacyAcknowledged: true,
       termsAccepted: true,
       legalVersion: LEGAL_VERSION
@@ -65,5 +66,6 @@ describe("organization application", () => {
 
   it("maps organization type to anonymous marketplace alias", () => {
     expect(createPublicAlias("VETERINARY_CLINIC")).toBe("Doğrulanmış Veteriner Kliniği");
+    expect(createPublicAlias("PHARMACY", "Örnek Eczanesi")).toBe("Örnek Eczanesi");
   });
 });

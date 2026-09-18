@@ -60,8 +60,12 @@ export default async function AccountPage({
               </dd>
             </div>
             <div>
-              <dt>Kredi limiti</dt>
-              <dd>{formatValue(organization.creditLimitKurus)}</dd>
+              <dt>Alt kredi sınırı</dt>
+              <dd>−{formatValue(organization.creditLimitKurus)}</dd>
+            </div>
+            <div>
+              <dt>Üst kredi sınırı</dt>
+              <dd>{organization.creditUpperLimitKurus === null ? "Sınırsız" : formatValue(organization.creditUpperLimitKurus)}</dd>
             </div>
             <div className="md:col-span-2">
               <dt>Açık adres</dt>

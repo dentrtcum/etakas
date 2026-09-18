@@ -1,7 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
-import { auditLogs, ledgerAccounts, organizationReviews, organizations } from "@/lib/db/schema";
+import {
+  auditLogs,
+  ledgerAccounts,
+  notifications,
+  organizationMembers,
+  organizationReviews,
+  organizations
+} from "@/lib/db/schema";
 import { type AppSessionUser } from "@/lib/auth/roles";
 import { requireAdmin } from "@/lib/auth/authorization";
 import { SecurityError } from "@/lib/security/request-guards";
@@ -71,6 +78,21 @@ export async function reviewOrganizationApplication({
       decision: nextStatus,
       reason
     });
+    const members = await tx
+      .select({ userId: organizationMembers.userId })
+      .from(organizationMembers)
+      .where(eq(organizationMembers.organizationId, organizationId));
+    if (members.length) {
+      await tx.insert(notifications).values(
+        members.map(({ userId }) => ({
+          userId,
+          organizationId,
+          type: "ADMIN_DECISION",
+          title: "İşletme başvurusu kararı",
+          body: `Durum: ${nextStatus}\nGerekçe: ${reason}`
+        }))
+      );
+    }
 
     if (nextStatus === "APPROVED") {
       await tx.insert(ledgerAccounts).values({ organizationId }).onConflictDoNothing();

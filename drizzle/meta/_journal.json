@@ -36,6 +36,13 @@
       "when": 1788822000000,
       "tag": "0005_security_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789762695614,
+      "tag": "0006_platform_communications",
+      "breakpoints": true
     }
   ]
 }

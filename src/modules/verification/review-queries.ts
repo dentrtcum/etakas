@@ -1,6 +1,12 @@
-import { desc, inArray } from "drizzle-orm";
+import { desc, eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
-import { organizationAddresses, organizationDocuments, organizations } from "@/lib/db/schema";
+import {
+  organizationAddresses,
+  organizationDocuments,
+  organizations,
+  ledgerAccounts,
+  ledgerEntries
+} from "@/lib/db/schema";
 import { decryptField } from "@/lib/encryption/field-crypto";
 import { serverEnv } from "@/lib/env";
 import type { OrganizationReviewStatus } from "@/modules/verification/organization-review";
@@ -37,12 +43,14 @@ export async function listOrganizationReviewQueue(page = 1) {
       status: organizations.status,
       publicAlias: organizations.publicAlias,
       creditLimitKurus: organizations.creditLimitKurus,
+      creditUpperLimitKurus: organizations.creditUpperLimitKurus,
       legalNameEncrypted: organizations.legalNameEncrypted,
       taxNumberEncrypted: organizations.taxNumberEncrypted,
       licenseNumberEncrypted: organizations.licenseNumberEncrypted,
       authorizedPersonNameEncrypted: organizations.authorizedPersonNameEncrypted,
       authorizedPersonTitleEncrypted: organizations.authorizedPersonTitleEncrypted,
       ownerIdentityNumberEncrypted: organizations.ownerIdentityNumberEncrypted,
+      glnEncrypted: organizations.glnEncrypted,
       professionalChamberEncrypted: organizations.professionalChamberEncrypted,
       contactEmailEncrypted: organizations.contactEmailEncrypted,
       province: organizations.province,
@@ -81,6 +89,17 @@ export async function listOrganizationReviewQueue(page = 1) {
           .from(organizationDocuments)
           .where(inArray(organizationDocuments.organizationId, organizationIds))
       : [];
+  const balances = organizationIds.length
+    ? await db
+        .select({
+          organizationId: ledgerAccounts.organizationId,
+          balanceKurus: sql<number>`coalesce(sum(case when ${ledgerEntries.direction} = 'CREDIT' then ${ledgerEntries.amountKurus} else -${ledgerEntries.amountKurus} end), 0)::bigint`
+        })
+        .from(ledgerAccounts)
+        .leftJoin(ledgerEntries, eq(ledgerEntries.accountId, ledgerAccounts.id))
+        .where(inArray(ledgerAccounts.organizationId, organizationIds))
+        .groupBy(ledgerAccounts.organizationId)
+    : [];
 
   return rows.map((row) => {
     const address = addresses.find((item) => item.organizationId === row.id);
@@ -102,6 +121,8 @@ export async function listOrganizationReviewQueue(page = 1) {
       ownerIdentityNumber: row.ownerIdentityNumberEncrypted
         ? decryptForAdmin(row.ownerIdentityNumberEncrypted)
         : null,
+      gln: row.glnEncrypted ? decryptForAdmin(row.glnEncrypted) : null,
+      balanceKurus: Number(balances.find((item) => item.organizationId === row.id)?.balanceKurus ?? 0),
       professionalChamber: row.professionalChamberEncrypted
         ? decryptForAdmin(row.professionalChamberEncrypted)
         : null,

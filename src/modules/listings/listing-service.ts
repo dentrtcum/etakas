@@ -73,12 +73,6 @@ export async function submitListingForReview(
     throw new ListingSubmissionError("ENCRYPTION_KEY is required for listing submission.");
   }
 
-  if (
-    !evidence.some((item) => item.kind === "image") ||
-    !evidence.some((item) => item.kind === "package")
-  ) {
-    throw new ListingSubmissionError("Listing images are required.");
-  }
   const eligibleIds = actor.organizationIds.filter(
     (id) =>
       requireOrganizationAccess(actor, id, [
@@ -173,7 +167,7 @@ export async function submitListingForReview(
         .values({
           organizationId: organization.id,
           productId: product.id,
-          submittedName: input.productName,
+          submittedName: existingProduct ? null : input.productName,
           lotNumberEncrypted: encryptField(
             input.lotNumber || buildSystemLotNumber(input.barcode, input.expiryDate),
             encryptionKey

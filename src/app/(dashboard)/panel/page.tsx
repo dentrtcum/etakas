@@ -57,7 +57,7 @@ export default async function DashboardPage() {
           [
             "Kullanılabilir bakiye",
             formatValue(overview.balance - overview.held + organization.creditLimitKurus),
-            "Takas referans değeri"
+            `Gerçek bakiye ${formatValue(overview.balance)} · alt sınır −${formatValue(organization.creditLimitKurus)}`
           ],
           ["Rezerve bakiye", formatValue(overview.held), "Devam eden siparişler"],
           ["İlanlarım", overview.listingCount, "Tüm ilan kayıtlarınız"],

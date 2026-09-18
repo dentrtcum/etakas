@@ -98,7 +98,9 @@ const labels: Record<string, string> = {
   CLEAN: "Kontrol edildi",
   SCANNING: "Taranıyor",
   QUARANTINED: "Karantinada",
-  INFECTED: "Engellendi"
+  INFECTED: "Engellendi",
+  OPEN: "Açık",
+  ANSWERED: "Yanıtlandı"
 };
 export function statusLabel(status: string) {
   return labels[status] ?? status;

@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera, Keyboard, X } from "lucide-react";
+import { Camera, Keyboard, Search, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 type BarcodeDetectorConstructor = new (options?: { formats?: string[] }) => {
@@ -11,63 +11,89 @@ export function BarcodeInput() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [barcode, setBarcode] = useState("");
+  const [productName, setProductName] = useState("");
+  const [catalogMatch, setCatalogMatch] = useState(false);
   const [scanning, setScanning] = useState(false);
-  const [message, setMessage] = useState("Barkodu elle yazabilir veya kamerayla okutabilirsiniz.");
+  const [message, setMessage] = useState(
+    "Barkodu elle yazabilir, USB okuyucuyla girebilir veya kamerayla okutabilirsiniz."
+  );
+
+  useEffect(() => {
+    if (!/^\d{8,14}$/.test(barcode)) {
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/catalog/barcodes/${barcode}`, {
+          signal: controller.signal,
+          headers: { Accept: "application/json" }
+        });
+        if (response.status === 404) {
+          setCatalogMatch(false);
+          setMessage("Yeni barkod. İlaç adını girin; yönetici daha sonra katalogdan düzenleyebilir.");
+          return;
+        }
+        if (!response.ok) throw new Error("LOOKUP_FAILED");
+        const result = (await response.json()) as { name: string };
+        setProductName(result.name);
+        setCatalogMatch(true);
+        setMessage("Barkod katalogla eşleşti; ilaç adı otomatik dolduruldu.");
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") {
+          setCatalogMatch(false);
+          setMessage("Katalog sorgulanamadı. Barkodu ve ilaç adını elle girebilirsiniz.");
+        }
+      }
+    }, 250);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [barcode]);
 
   useEffect(() => {
     if (!scanning) return;
-
     let cancelled = false;
-
     async function startScanner() {
-      const detectorCtor = (window as typeof window & { BarcodeDetector?: BarcodeDetectorConstructor }).BarcodeDetector;
-
+      const detectorCtor = (window as typeof window & {
+        BarcodeDetector?: BarcodeDetectorConstructor;
+      }).BarcodeDetector;
       if (!detectorCtor) {
-        setMessage("Bu tarayici barkod okumayi desteklemiyor. Barkodu elle girebilirsiniz.");
+        setMessage("Bu tarayıcı kamera ile barkod okumayı desteklemiyor. USB okuyucu veya elle giriş kullanabilirsiniz.");
         setScanning(false);
         return;
       }
-
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" }
-        });
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
         streamRef.current = stream;
-
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
         }
-
         const detector = new detectorCtor({
           formats: ["ean_13", "ean_8", "code_128", "code_39", "upc_a", "upc_e"]
         });
-
         const tick = async () => {
           if (cancelled || !videoRef.current) return;
-
           const results = await detector.detect(videoRef.current);
           const value = results[0]?.rawValue?.replace(/\D/g, "");
-
           if (value) {
+            setCatalogMatch(false);
             setBarcode(value);
-            setMessage("Barkod okundu.");
+            setMessage("Barkod okundu; katalog sorgulanıyor.");
             setScanning(false);
             return;
           }
-
           window.setTimeout(tick, 350);
         };
-
         await tick();
       } catch {
-        setMessage("Kamera acilamadi. Barkodu elle girebilirsiniz.");
+        setMessage("Kamera açılamadı. USB okuyucu veya elle giriş kullanabilirsiniz.");
         setScanning(false);
       }
     }
-
     void startScanner();
-
     return () => {
       cancelled = true;
       streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -76,17 +102,21 @@ export function BarcodeInput() {
   }, [scanning]);
 
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-4">
       <label className="grid gap-2">
-        <span className="text-sm font-medium">Ilac barkodu</span>
+        <span className="text-sm font-medium">İlaç barkodu</span>
         <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
           <input
+            autoComplete="off"
             className="h-11 rounded-md border border-[var(--line)] bg-white px-3"
             inputMode="numeric"
             maxLength={14}
             minLength={8}
             name="barcode"
-            onChange={(event) => setBarcode(event.target.value.replace(/\D/g, ""))}
+            onChange={(event) => {
+              setBarcode(event.target.value.replace(/\D/g, ""));
+              setCatalogMatch(false);
+            }}
             pattern="[0-9]{8,14}"
             required
             type="text"
@@ -98,16 +128,27 @@ export function BarcodeInput() {
             type="button"
           >
             {scanning ? <X aria-hidden="true" size={16} /> : <Camera aria-hidden="true" size={16} />}
-            {scanning ? "Kapat" : "Barkod okut"}
+            {scanning ? "Kapat" : "Kamerayla okut"}
           </button>
         </div>
       </label>
-
-      <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-        <Keyboard aria-hidden="true" size={14} />
+      <label className="grid gap-2">
+        <span className="text-sm font-medium">İlaç adı</span>
+        <input
+          name="productName"
+          value={productName}
+          onChange={(event) => setProductName(event.target.value)}
+          readOnly={catalogMatch}
+          required
+          minLength={3}
+          maxLength={240}
+          placeholder="Barkod eşleşmezse ilacın tam adını yazın"
+        />
+      </label>
+      <div className="flex items-center gap-2 text-xs text-[var(--muted)]" role="status">
+        {catalogMatch ? <Search aria-hidden="true" size={14} /> : <Keyboard aria-hidden="true" size={14} />}
         {message}
       </div>
-
       {scanning ? (
         <video
           className="aspect-video w-full rounded-md border border-[var(--line)] bg-slate-950 object-cover"

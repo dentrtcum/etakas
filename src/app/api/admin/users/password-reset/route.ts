@@ -5,7 +5,7 @@ import { requireAdmin } from "@/lib/auth/authorization";
 import { requestPasswordReset } from "@/lib/auth/challenges";
 import { getCurrentAppUser } from "@/lib/auth/current-user";
 import { getDb } from "@/lib/db/client";
-import { users } from "@/lib/db/schema";
+import { notifications, users } from "@/lib/db/schema";
 import { mutationRoute } from "@/lib/http/mutation";
 import { requireRateLimit, SecurityError } from "@/lib/security/request-guards";
 const schema = z.object({ userId: z.uuid(), reason: z.string().trim().min(10).max(1000) });
@@ -34,6 +34,12 @@ export const POST = mutationRoute(
       windowSeconds: 1800
     });
     await requestPasswordReset(request, user.email, { ...actor, reason: parsed.data.reason });
+    await getDb().insert(notifications).values({
+      userId: parsed.data.userId,
+      type: "ADMIN_DECISION",
+      title: "Parola yenileme işlemi başlatıldı",
+      body: `Yönetici hesabınız için parola yenileme bağlantısı gönderdi.\nGerekçe: ${parsed.data.reason}`
+    });
     return NextResponse.json({ ok: true });
   },
   10

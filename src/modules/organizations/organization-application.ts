@@ -4,12 +4,12 @@ import { LEGAL_VERSION } from "@/lib/legal/version";
 
 export const organizationApplicationSchema = z.object({
   type: z.enum(["PHARMACY", "VETERINARY_CLINIC", "VETERINARY_POLYCLINIC", "ANIMAL_HOSPITAL"]),
-  taxNumber: z.string().trim().min(10).max(20),
+  pharmacyName: z.string().trim().min(3).max(160),
   authorizedPersonName: z.string().trim().min(3).max(160),
-  ownerIdentityNumber: z
+  gln: z
     .string()
     .trim()
-    .regex(/^\d{11}$/),
+    .regex(/^\d{13}$/),
   email: z.string().trim().email().max(320),
   password: passwordPolicySchema,
   phone: z.string().trim().min(10).max(32),
@@ -27,7 +27,11 @@ export function validateOrganizationApplication(input: unknown) {
   return organizationApplicationSchema.parse(input);
 }
 
-export function createPublicAlias(type: OrganizationApplication["type"]) {
+export function createPublicAlias(
+  type: OrganizationApplication["type"],
+  pharmacyName?: string
+) {
+  if (pharmacyName?.trim()) return pharmacyName.trim();
   switch (type) {
     case "PHARMACY":
       return "Doğrulanmış Eczane";
@@ -46,7 +50,7 @@ export function toSafeApplicationAuditSummary(application: OrganizationApplicati
     province: application.province,
     district: application.district,
     emailDomain: application.email.split("@")[1] ?? "unknown",
-    hasOwnerIdentityNumber: application.ownerIdentityNumber.length === 11,
+    hasGln: application.gln.length === 13,
     privacyAcknowledged: application.privacyAcknowledged,
     termsAccepted: application.termsAccepted,
     legalVersion: application.legalVersion

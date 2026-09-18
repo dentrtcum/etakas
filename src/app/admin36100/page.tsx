@@ -18,7 +18,12 @@ import { listOrganizationReviewQueue } from "@/modules/verification/review-queri
 import { listListingReviewQueue } from "@/modules/listings/listing-queries";
 import { listAdminOrderQueue } from "@/modules/orders/order-queries";
 import { readPage } from "@/modules/organizations/account-queries";
-import { listAdminUsers } from "@/modules/admin/user-queries";
+import {
+  listAdminOrganizations,
+  listAdminUsers,
+  listProductCatalog
+} from "@/modules/admin/user-queries";
+import { listAdminSupportTickets } from "@/modules/communications/service";
 export const metadata = { title: "Yönetim merkezi", robots: { index: false, follow: false } };
 const labels: Record<string, string> = {
   START_REVIEW: "İncelemeye al",
@@ -71,14 +76,17 @@ export default async function AdminPage({
   if (!requireAdmin(actor).allowed) redirect("/giris?next=/admin36100");
   const params = await searchParams;
   const page = readPage(params.page);
-  const tab = ["organizations", "listings", "orders", "users"].includes(params.tab ?? "")
+  const tab = ["organizations", "listings", "orders", "communications", "barcodes", "users"].includes(params.tab ?? "")
     ? params.tab!
     : "organizations";
-  const [orgs, items, orders, accounts] = await Promise.all([
+  const [orgs, items, orders, accounts, catalog, tickets, organizationOptions] = await Promise.all([
     tab === "organizations" ? listOrganizationReviewQueue(page) : Promise.resolve([]),
     tab === "listings" ? listListingReviewQueue(page) : Promise.resolve([]),
     tab === "orders" ? listAdminOrderQueue(page) : Promise.resolve([]),
-    tab === "users" ? listAdminUsers(page) : Promise.resolve([])
+    tab === "users" ? listAdminUsers(page) : Promise.resolve([]),
+    tab === "barcodes" ? listProductCatalog(page) : Promise.resolve([]),
+    tab === "communications" ? listAdminSupportTickets(actor!) : Promise.resolve([]),
+    ["communications", "organizations"].includes(tab) ? listAdminOrganizations() : Promise.resolve([])
   ]);
   const rows =
     tab === "organizations"
@@ -87,7 +95,11 @@ export default async function AdminPage({
         ? items
         : tab === "orders"
           ? orders
-          : accounts;
+          : tab === "users"
+            ? accounts
+            : tab === "barcodes"
+              ? catalog
+              : tickets;
   return (
     <main className="page-container">
       <PageHeading
@@ -105,6 +117,8 @@ export default async function AdminPage({
           ["organizations", "İşletmeler"],
           ["listings", "İlanlar"],
           ["orders", "Sipariş ve itirazlar"],
+          ["communications", "Duyuru ve destek"],
+          ["barcodes", "Barkod kataloğu"],
           ["users", "Kullanıcı güvenliği"]
         ].map(([key, label]) => (
           <Link
@@ -180,20 +194,34 @@ export default async function AdminPage({
               </div>
             </article>
           ))}
+        {tab === "organizations" && (
+          <section className="panel-card">
+            <h2 className="panel-title">Tüm işletmeler için kredi sınırları</h2>
+            <p className="subtext mb-4">Onaylı işletmelerin alt ve üst sınırlarını tek işlemle güncelleyin.</p>
+            <SubmitForm endpoint="/api/admin/credit-limits" json values={{ applyToAll: true, operation: "SET_LIMITS" }} label="Toplu sınırları uygula">
+              <div className="form-grid">
+                <label>Alt sınır (TL, 0 veya negatif)<input name="lowerLimit" type="number" max={0} min={-1000000} step="0.01" required defaultValue={0} /></label>
+                <label>Üst sınır (TL, boşsa sınırsız)<input name="upperLimit" type="number" min={0} max={1000000} step="0.01" /></label>
+              </div>
+              <label>Gerekçe<textarea name="reason" minLength={10} maxLength={2000} required rows={2} /></label>
+            </SubmitForm>
+          </section>
+        )}
         {tab === "organizations" &&
           orgs.slice(0, 20).map((row) => {
             const decisions = getAllowedOrganizationReviewDecisions(row.status);
             return (
-              <article className="panel-card" key={row.id}>
-                <div className="flex justify-between flex-wrap gap-3">
+              <details className="panel-card admin-organization" key={row.id}>
+                <summary className="flex justify-between flex-wrap gap-3">
                   <div>
-                    <h2 className="panel-title">{row.authorizedPersonName || row.publicAlias}</h2>
+                    <h2 className="panel-title">{row.legalName || row.publicAlias}</h2>
                     <p className="subtext">
                       {organizationTypeLabels[row.type]} · {row.province} / {row.district}
                     </p>
                   </div>
                   <StatusBadge status={row.status} />
-                </div>
+                </summary>
+                <div className="mt-5 border-t border-[var(--line)] pt-5">
                 <dl className="review-grid mt-5">
                   <div>
                     <dt>E-posta</dt>
@@ -204,12 +232,20 @@ export default async function AdminPage({
                     <dd>{row.phone || "Belirtilmemiş"}</dd>
                   </div>
                   <div>
-                    <dt>T.C. kimlik no</dt>
-                    <dd>{row.ownerIdentityNumber || "Belirtilmemiş"}</dd>
+                    <dt>GLN numarası</dt>
+                    <dd>{row.gln || "Belirtilmemiş"}</dd>
                   </div>
                   <div>
-                    <dt>Vergi numarası</dt>
-                    <dd>{row.taxNumber || "Belirtilmemiş"}</dd>
+                    <dt>Yetkili kişi</dt>
+                    <dd>{row.authorizedPersonName || "Belirtilmemiş"}</dd>
+                  </div>
+                  <div>
+                    <dt>Mevcut kredi</dt>
+                    <dd>{formatValue(row.balanceKurus)}</dd>
+                  </div>
+                  <div>
+                    <dt>Alt / üst sınır</dt>
+                    <dd>-{formatValue(row.creditLimitKurus)} / {row.creditUpperLimitKurus === null ? "Sınırsız" : formatValue(row.creditUpperLimitKurus)}</dd>
                   </div>
                   <div className="md:col-span-2">
                     <dt>Açık adres</dt>
@@ -235,6 +271,16 @@ export default async function AdminPage({
                     <p className="subtext">Belge eklenmemiş. Başvuru belgeleri isteğe bağlıdır.</p>
                   )}
                 </div>
+                <details className="border-t border-[var(--line)] pt-4 my-5">
+                  <summary className="text-sm font-semibold">İşletme adı ve GLN bilgisini düzenle</summary>
+                  <SubmitForm className="mt-4" endpoint="/api/admin/organizations" json values={{ organizationId: row.id }} label="İşletme bilgilerini güncelle">
+                    <div className="form-grid">
+                      <label>Eczane / işletme adı<input name="pharmacyName" defaultValue={row.legalName || row.publicAlias} minLength={3} maxLength={160} required /></label>
+                      <label>GLN numarası<input name="gln" defaultValue={row.gln ?? ""} inputMode="numeric" pattern="[0-9]{13}" minLength={13} maxLength={13} required /></label>
+                    </div>
+                    <label>Gerekçe<textarea name="reason" minLength={10} maxLength={2000} required rows={2} /></label>
+                  </SubmitForm>
+                </details>
                 {decisions.length > 0 && (
                   <SubmitForm
                     endpoint="/api/admin/organization-reviews"
@@ -246,35 +292,43 @@ export default async function AdminPage({
                   </SubmitForm>
                 )}
                 <details className="border-t border-[var(--line)] pt-4 mt-5">
-                  <summary className="text-sm font-semibold">Takas kredi limiti</summary>
+                  <summary className="text-sm font-semibold">Takas kredi sınırlarını yönet</summary>
                   <SubmitForm
                     className="mt-4"
                     endpoint="/api/admin/credit-limits"
                     json
-                    values={{ organizationId: row.id }}
-                    label="Limiti güncelle"
+                    values={{ organizationId: row.id, operation: "SET_LIMITS" }}
+                    label="Sınırları güncelle"
                   >
                     <div className="form-grid">
                       <label>
-                        Kredi limiti (TL)
+                        Alt sınır (TL, 0 veya negatif)
                         <input
                           type="number"
                           step="0.01"
-                          min={0}
-                          max={1000000}
-                          name="creditLimit"
+                          min={-1000000}
+                          max={0}
+                          name="lowerLimit"
                           required
-                          defaultValue={row.creditLimitKurus / 100}
+                          defaultValue={-row.creditLimitKurus / 100}
                         />
                       </label>
+                      <label>Üst sınır (TL, boşsa sınırsız)<input type="number" step="0.01" min={0} max={1000000} name="upperLimit" defaultValue={row.creditUpperLimitKurus === null ? "" : row.creditUpperLimitKurus / 100} /></label>
                       <label>
                         Gerekçe
                         <textarea name="reason" minLength={10} maxLength={2000} required rows={2} />
                       </label>
                     </div>
                   </SubmitForm>
+                  <SubmitForm className="mt-5" endpoint="/api/admin/credit-limits" json values={{ organizationId: row.id, operation: "ADJUST_LOWER" }} label="Alt sınırı değiştir">
+                    <div className="form-grid">
+                      <label>Değişiklik (TL)<input type="number" step="0.01" min={-1000000} max={1000000} name="limitDelta" required placeholder="Örn. 1000 veya -1000" /></label>
+                      <label>Gerekçe<textarea name="reason" minLength={10} maxLength={2000} required rows={2} /></label>
+                    </div>
+                  </SubmitForm>
                 </details>
-              </article>
+                </div>
+              </details>
             );
           })}
         {tab === "listings" &&
@@ -320,6 +374,29 @@ export default async function AdminPage({
                     </a>
                   ))}
                 </div>
+                <details className="border-t border-[var(--line)] pt-4 mb-5">
+                  <summary className="text-sm font-semibold">İlan içeriğini ve görsellerini düzenle</summary>
+                  <SubmitForm className="mt-4" endpoint="/api/admin/listings" label="İlan değişikliklerini kaydet" successMessage="İlan güncellendi.">
+                    <input type="hidden" name="listingId" value={row.id} />
+                    <div className="form-grid">
+                      <label>İlaç adı<input name="productName" defaultValue={row.productName} minLength={3} maxLength={240} required /></label>
+                      <label>Barkod<input name="barcode" defaultValue={row.productGtin} pattern="[0-9]{8,14}" required /></label>
+                      <label>Ürün türü<select name="productType" defaultValue={row.productType}><option value="HUMAN">Beşeri ilaç</option><option value="VETERINARY">Veteriner ürünü</option></select></label>
+                      <label>Etken madde<input name="activeIngredient" defaultValue={row.activeIngredient ?? ""} maxLength={240} /></label>
+                      <label>Üretici<input name="manufacturer" defaultValue={row.manufacturer ?? ""} maxLength={180} /></label>
+                      <label>Doz / güç<input name="strength" defaultValue={row.strength ?? ""} maxLength={120} /></label>
+                      <label>Form<input name="form" defaultValue={row.form ?? ""} maxLength={120} /></label>
+                      <label>Son kullanma tarihi<input name="expiryDate" type="date" defaultValue={row.minExpiryDate} required /></label>
+                      <label>Kullanılabilir miktar<input name="quantityAvailable" type="number" min={0} max={100000} defaultValue={row.quantityAvailable} required /></label>
+                      <label>Birim referans değeri (TL)<input name="unitReferenceValue" type="number" min="0.01" max={1000000} step="0.01" defaultValue={row.unitReferenceValueKurus / 100} required /></label>
+                      <label>Saklama koşulları<input name="storageConditions" maxLength={500} defaultValue={row.storageConditions ?? ""} /></label>
+                      <label>Yeni ürün fotoğrafı <span className="field-optional">İsteğe bağlı</span><input name="medicineImage" type="file" accept="image/jpeg,image/png,image/webp" /></label>
+                      <label>Yeni ambalaj fotoğrafı <span className="field-optional">İsteğe bağlı</span><input name="packageImage" type="file" accept="image/jpeg,image/png,image/webp" /></label>
+                    </div>
+                    <label className="check-label"><input name="replaceImages" type="checkbox" value="true" /> Mevcut görselleri yeni yüklenenlerle değiştir</label>
+                    <label>Değişiklik gerekçesi<textarea name="reason" minLength={10} maxLength={2000} required rows={2} /></label>
+                  </SubmitForm>
+                </details>
                 {decisions.length > 0 && (
                   <SubmitForm
                     endpoint="/api/admin/listing-reviews"
@@ -366,6 +443,58 @@ export default async function AdminPage({
               </article>
             );
           })}
+        {tab === "communications" && (
+          <section className="panel-card">
+            <h2 className="panel-title">Duyuru gönder</h2>
+            <p className="subtext mb-4">Duyuru, seçilen kullanıcıların sonraki girişinde bir kez büyük pencere olarak gösterilir ve bildirim geçmişinde kalır.</p>
+            <SubmitForm endpoint="/api/admin/announcements" json label="Duyuruyu gönder" successMessage="Duyuru gönderildi.">
+              <label>Alıcı<select name="organizationId" defaultValue=""><option value="">Tüm onaylı işletmeler</option>{organizationOptions.filter((item) => item.status === "APPROVED").map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+              <label>Başlık<input name="title" minLength={3} maxLength={180} required /></label>
+              <label>Mesaj<textarea name="body" minLength={3} maxLength={4000} rows={5} required /></label>
+            </SubmitForm>
+          </section>
+        )}
+        {tab === "communications" && tickets.map((ticket) => (
+          <details className="panel-card" key={ticket.id}>
+            <summary className="flex justify-between gap-3"><strong>{ticket.organizationName} · {ticket.kind === "COMPLAINT" ? "Şikayet" : "Talep"}: {ticket.subject}</strong><StatusBadge status={ticket.status} /></summary>
+            <div className="message-list mt-5">{ticket.messages.map((message) => <article className={message.fromAdmin ? "message-bubble message-own" : "message-bubble"} key={message.id}><p>{message.body}</p><small>{message.fromAdmin ? "Yönetici" : ticket.organizationName} · {formatDate(message.createdAt)}</small></article>)}</div>
+            {ticket.status !== "CLOSED" && <SubmitForm className="mt-5" endpoint="/api/admin/support" json values={{ ticketId: ticket.id }} label="Yanıtı gönder" successMessage="Yanıt kullanıcıya bildirildi."><label>Yanıt<textarea name="body" minLength={1} maxLength={4000} rows={4} required /></label><label className="check-label"><input name="close" type="checkbox" /> Yanıttan sonra kaydı kapat</label></SubmitForm>}
+          </details>
+        ))}
+        {tab === "barcodes" && (
+          <section className="panel-card">
+            <h2 className="panel-title">Yeni barkod ekle</h2>
+            <SubmitForm endpoint="/api/admin/barcodes" json values={{ action: "UPSERT", isActive: true }} label="Kataloğa ekle" successMessage="Barkod eklendi.">
+              <div className="form-grid">
+                <label>Barkod / GTIN<input name="gtin" pattern="[0-9]{8,14}" required /></label>
+                <label>İlaç adı<input name="name" minLength={3} maxLength={240} required /></label>
+                <label>Tür<select name="type" required><option value="HUMAN">Beşeri ilaç</option><option value="VETERINARY">Veteriner ürünü</option></select></label>
+                <label>Etken madde<input name="activeIngredient" maxLength={240} /></label>
+                <label>Üretici<input name="manufacturer" maxLength={180} /></label>
+                <label>Doz / güç<input name="strength" maxLength={120} /></label>
+                <label>Form<input name="form" maxLength={120} /></label>
+              </div>
+            </SubmitForm>
+          </section>
+        )}
+        {tab === "barcodes" && catalog.slice(0, 50).map((product) => (
+          <details className="panel-card" key={product.id}>
+            <summary className="flex justify-between gap-3"><strong>{product.name} · {product.gtin}</strong><StatusBadge status={product.isActive ? "ACTIVE" : "REMOVED"} /></summary>
+            <SubmitForm className="mt-5" endpoint="/api/admin/barcodes" json values={{ action: "UPSERT", productId: product.id }} label="Barkodu güncelle">
+              <div className="form-grid">
+                <label>Barkod / GTIN<input name="gtin" defaultValue={product.gtin} pattern="[0-9]{8,14}" required /></label>
+                <label>İlaç adı<input name="name" defaultValue={product.name} minLength={3} maxLength={240} required /></label>
+                <label>Tür<select name="type" defaultValue={product.type}><option value="HUMAN">Beşeri ilaç</option><option value="VETERINARY">Veteriner ürünü</option></select></label>
+                <label>Etken madde<input name="activeIngredient" defaultValue={product.activeIngredient ?? ""} maxLength={240} /></label>
+                <label>Üretici<input name="manufacturer" defaultValue={product.manufacturer ?? ""} maxLength={180} /></label>
+                <label>Doz / güç<input name="strength" defaultValue={product.strength ?? ""} maxLength={120} /></label>
+                <label>Form<input name="form" defaultValue={product.form ?? ""} maxLength={120} /></label>
+                <label>Durum<select name="isActive" defaultValue={product.isActive ? "true" : "false"}><option value="true">Aktif</option><option value="false">Pasif</option></select></label>
+              </div>
+            </SubmitForm>
+            {product.isActive && <SubmitForm className="mt-5" endpoint="/api/admin/barcodes" json values={{ action: "DELETE", productId: product.id }} label="Barkodu devre dışı bırak"><label>Gerekçe<textarea name="reason" minLength={10} maxLength={1000} required rows={2} /></label></SubmitForm>}
+          </details>
+        ))}
         {!rows.length && (
           <EmptyState
             title="Bu bölümde kayıt yok"

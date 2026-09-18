@@ -5,9 +5,9 @@ import { LegalAcceptance } from "@/components/legal-acceptance";
 import { Captcha } from "@/components/captcha";
 import { getLegalReadiness } from "@/lib/legal/config";
 const fields = [
+  ["pharmacyName", "Eczane / işletme adı", "text", "organization"],
   ["authorizedPersonName", "Yetkili kişi adı soyadı", "text", "name"],
-  ["taxNumber", "Vergi numarası", "text", "off"],
-  ["ownerIdentityNumber", "İşletme sahibi T.C. kimlik no", "text", "off"],
+  ["gln", "GLN numarası", "text", "off"],
   ["email", "E-posta adresi", "email", "email"],
   ["phone", "Telefon", "tel", "tel"],
   ["province", "İl", "text", "address-level1"],
@@ -67,13 +67,10 @@ export default function RegistrationPage() {
                   type={type}
                   autoComplete={autoComplete}
                   required
-                  minLength={
-                    name === "ownerIdentityNumber" ? 11 : name === "taxNumber" ? 10 : undefined
-                  }
-                  maxLength={
-                    name === "ownerIdentityNumber" ? 11 : name === "taxNumber" ? 20 : undefined
-                  }
-                  pattern={name === "ownerIdentityNumber" ? "[0-9]{11}" : undefined}
+                  inputMode={name === "gln" ? "numeric" : undefined}
+                  minLength={name === "gln" ? 13 : undefined}
+                  maxLength={name === "gln" ? 13 : undefined}
+                  pattern={name === "gln" ? "[0-9]{13}" : undefined}
                 />
               </label>
             ))}

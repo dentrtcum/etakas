@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, isNull, isNotNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, isNotNull, sql } from "drizzle-orm";
 import { requireAdmin, requireOrganizationAccess } from "@/lib/auth/authorization";
 import { lockAccounting } from "@/modules/ledger/accounting-lock";
+import { exceedsUpperCreditLimit } from "@/modules/ledger/credit-limits";
 import { assertLiveTradingEnabled } from "@/modules/compliance/live-trading";
 import type { AppSessionUser } from "@/lib/auth/roles";
 import { getDb } from "@/lib/db/client";
@@ -17,6 +18,8 @@ import {
   listings,
   orderItems,
   orders,
+  notifications,
+  organizationMembers,
   organizations,
   productBatches,
   productCatalog
@@ -132,7 +135,12 @@ export async function createOrderReservation(actor: AppSessionUser, input: Order
     }
 
     const [seller] = await tx
-      .select({ id: organizations.id, status: organizations.status, type: organizations.type })
+      .select({
+        id: organizations.id,
+        status: organizations.status,
+        type: organizations.type,
+        creditUpperLimitKurus: organizations.creditUpperLimitKurus
+      })
       .from(organizations)
       .where(eq(organizations.id, listing.sellerOrganizationId))
       .limit(1);
@@ -227,6 +235,21 @@ export async function createOrderReservation(actor: AppSessionUser, input: Order
       totalReferenceValueKurus > 2147483647
     )
       throw new OrderFlowError("Order value is outside the supported range.");
+    if (typeof seller.creditUpperLimitKurus === "number") {
+      const sellerEntries = await tx
+        .select({ direction: ledgerEntries.direction, amountKurus: ledgerEntries.amountKurus })
+        .from(ledgerEntries)
+        .where(eq(ledgerEntries.accountId, sellerAccount.id));
+      if (
+        exceedsUpperCreditLimit(
+          calculateLedgerBalance(sellerEntries),
+          totalReferenceValueKurus,
+          seller.creditUpperLimitKurus
+        )
+      ) {
+        throw new OrderFlowError("Seller upper credit limit would be exceeded.");
+      }
+    }
     const availableBalance =
       calculateLedgerBalance(entries) -
       holds.reduce((sum, hold) => sum + hold.amountKurus, 0) +
@@ -584,6 +607,20 @@ async function completeOrderInTransaction(
   if (!buyerAccount || !sellerAccount) {
     throw new OrderFlowError("Ledger account is missing.");
   }
+  const [sellerLimits] = await tx
+    .select({ creditUpperLimitKurus: organizations.creditUpperLimitKurus })
+    .from(organizations)
+    .where(eq(organizations.id, order.sellerOrganizationId))
+    .limit(1);
+  if (sellerLimits?.creditUpperLimitKurus !== null && sellerLimits?.creditUpperLimitKurus !== undefined) {
+    const sellerEntries = await tx
+      .select({ direction: ledgerEntries.direction, amountKurus: ledgerEntries.amountKurus })
+      .from(ledgerEntries)
+      .where(eq(ledgerEntries.accountId, sellerAccount.id));
+    if (exceedsUpperCreditLimit(calculateLedgerBalance(sellerEntries), order.totalReferenceValueKurus, sellerLimits.creditUpperLimitKurus)) {
+      throw new OrderFlowError("Seller upper credit limit would be exceeded.");
+    }
+  }
 
   const nextListingStatus = !["ACTIVE", "PARTIALLY_RESERVED", "SOLD_OUT"].includes(
     currentListing.status
@@ -846,6 +883,29 @@ export async function adminResolveOrder({
       assertAdminOrderDecision(order.status, decision);
     } catch {
       throw new OrderFlowError("Order action is not allowed from current status.");
+    }
+    const affectedMembers = await tx
+      .select({
+        userId: organizationMembers.userId,
+        organizationId: organizationMembers.organizationId
+      })
+      .from(organizationMembers)
+      .where(
+        inArray(organizationMembers.organizationId, [
+          order.buyerOrganizationId,
+          order.sellerOrganizationId
+        ])
+      );
+    if (affectedMembers.length) {
+      await tx.insert(notifications).values(
+        affectedMembers.map(({ userId, organizationId }) => ({
+          userId,
+          organizationId,
+          type: "ADMIN_DECISION",
+          title: `Sipariş için yönetici kararı: ${decision}`,
+          body: `Sipariş: ${order.id.slice(0, 8)}\nGerekçe: ${reason}`
+        }))
+      );
     }
     await tx.insert(auditLogs).values({
       actorUserId: actor.id,

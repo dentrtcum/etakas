@@ -212,11 +212,13 @@ export const organizations = pgTable(
     authorizedPersonNameEncrypted: text("authorized_person_name_encrypted"),
     authorizedPersonTitleEncrypted: text("authorized_person_title_encrypted"),
     ownerIdentityNumberEncrypted: text("owner_identity_number_encrypted"),
+    glnEncrypted: text("gln_encrypted"),
     professionalChamberEncrypted: text("professional_chamber_encrypted"),
     contactEmailEncrypted: text("contact_email_encrypted"),
     province: varchar("province", { length: 80 }).notNull(),
     district: varchar("district", { length: 80 }).notNull(),
     creditLimitKurus: integer("credit_limit_kurus").notNull().default(0),
+    creditUpperLimitKurus: integer("credit_upper_limit_kurus"),
     approvedAt: timestamp("approved_at", { withTimezone: true }),
     suspendedAt: timestamp("suspended_at", { withTimezone: true }),
     createdAt,
@@ -225,7 +227,11 @@ export const organizations = pgTable(
   (table) => [
     index("organizations_status_idx").on(table.status),
     index("organizations_type_status_idx").on(table.type, table.status),
-    check("organizations_credit_limit_non_negative", sql`${table.creditLimitKurus} >= 0`)
+    check("organizations_credit_limit_non_negative", sql`${table.creditLimitKurus} >= 0`),
+    check(
+      "organizations_credit_upper_limit_non_negative",
+      sql`${table.creditUpperLimitKurus} is null or ${table.creditUpperLimitKurus} >= 0`
+    )
   ]
 );
 
@@ -632,18 +638,116 @@ export const disputeEvidence = pgTable("dispute_evidence", {
   createdAt
 });
 
-export const notifications = pgTable("notifications", {
-  id,
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  type: varchar("type", { length: 120 }).notNull(),
-  title: varchar("title", { length: 180 }).notNull(),
-  body: text("body").notNull(),
-  readAt: timestamp("read_at", { withTimezone: true }),
-  retryAfter: timestamp("retry_after", { withTimezone: true }),
-  createdAt
-});
+export const notifications = pgTable(
+  "notifications",
+  {
+    id,
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id").references(() => organizations.id, {
+      onDelete: "cascade"
+    }),
+    type: varchar("type", { length: 120 }).notNull(),
+    title: varchar("title", { length: 180 }).notNull(),
+    body: text("body").notNull(),
+    isAnnouncement: boolean("is_announcement").notNull().default(false),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    retryAfter: timestamp("retry_after", { withTimezone: true }),
+    createdAt
+  },
+  (table) => [
+    index("notifications_user_created_idx").on(table.userId, table.createdAt),
+    index("notifications_unread_idx").on(table.userId, table.readAt)
+  ]
+);
+
+export const conversations = pgTable(
+  "conversations",
+  {
+    id,
+    firstOrganizationId: uuid("first_organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    secondOrganizationId: uuid("second_organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    createdAt,
+    updatedAt
+  },
+  (table) => [
+    uniqueIndex("conversations_organization_pair_unique").on(
+      table.firstOrganizationId,
+      table.secondOrganizationId
+    ),
+    index("conversations_first_org_idx").on(table.firstOrganizationId, table.updatedAt),
+    index("conversations_second_org_idx").on(table.secondOrganizationId, table.updatedAt),
+    check(
+      "conversations_distinct_ordered_parties",
+      sql`${table.firstOrganizationId} < ${table.secondOrganizationId}`
+    )
+  ]
+);
+
+export const conversationMessages = pgTable(
+  "conversation_messages",
+  {
+    id,
+    conversationId: uuid("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    senderOrganizationId: uuid("sender_organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    senderUserId: uuid("sender_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    body: text("body").notNull(),
+    createdAt
+  },
+  (table) => [index("conversation_messages_thread_idx").on(table.conversationId, table.createdAt)]
+);
+
+export const supportTickets = pgTable(
+  "support_tickets",
+  {
+    id,
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    openedByUserId: uuid("opened_by_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    kind: varchar("kind", { length: 24 }).notNull(),
+    subject: varchar("subject", { length: 180 }).notNull(),
+    status: varchar("status", { length: 24 }).notNull().default("OPEN"),
+    createdAt,
+    updatedAt
+  },
+  (table) => [
+    index("support_tickets_org_idx").on(table.organizationId, table.updatedAt),
+    index("support_tickets_status_idx").on(table.status, table.updatedAt),
+    check("support_tickets_kind_check", sql`${table.kind} in ('COMPLAINT', 'REQUEST')`),
+    check("support_tickets_status_check", sql`${table.status} in ('OPEN', 'ANSWERED', 'CLOSED')`)
+  ]
+);
+
+export const supportMessages = pgTable(
+  "support_messages",
+  {
+    id,
+    ticketId: uuid("ticket_id")
+      .notNull()
+      .references(() => supportTickets.id, { onDelete: "cascade" }),
+    senderUserId: uuid("sender_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    fromAdmin: boolean("from_admin").notNull().default(false),
+    body: text("body").notNull(),
+    createdAt
+  },
+  (table) => [index("support_messages_ticket_idx").on(table.ticketId, table.createdAt)]
+);
 
 export const auditLogs = pgTable(
   "audit_logs",

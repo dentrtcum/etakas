@@ -53,11 +53,10 @@ export function buildOrganizationInsert(
   return {
     type: application.type as OrganizationType,
     status: "SUBMITTED" as OrganizationStatus,
-    legalNameEncrypted: encryptField(createPublicAlias(application.type), encryptionSecret),
-    publicAlias: createPublicAlias(application.type),
-    taxNumberEncrypted: encryptField(application.taxNumber, encryptionSecret),
+    legalNameEncrypted: encryptField(application.pharmacyName, encryptionSecret),
+    publicAlias: createPublicAlias(application.type, application.pharmacyName),
+    glnEncrypted: encryptField(application.gln, encryptionSecret),
     authorizedPersonNameEncrypted: encryptField(application.authorizedPersonName, encryptionSecret),
-    ownerIdentityNumberEncrypted: encryptField(application.ownerIdentityNumber, encryptionSecret),
     contactEmailEncrypted: encryptField(application.email.toLowerCase(), encryptionSecret),
     province: application.province,
     district: application.district

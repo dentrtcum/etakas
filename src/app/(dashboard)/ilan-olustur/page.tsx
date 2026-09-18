@@ -58,17 +58,6 @@ export default async function CreateListingPage() {
             <div className="md:col-span-2">
               <BarcodeInput />
             </div>
-            <label className="md:col-span-2">
-              Ürün adı
-              <input
-                name="productName"
-                required
-                minLength={3}
-                maxLength={240}
-                placeholder="Ürünün ambalaj üzerindeki tam adı"
-              />
-              <small>Katalogda kayıtlı barkodlar mevcut ürün bilgileriyle eşleştirilir.</small>
-            </label>
             <label>
               Son kullanma tarihi
               <input name="expiryDate" required type="date" />
@@ -113,26 +102,24 @@ export default async function CreateListingPage() {
             <div>
               <h2 className="panel-title">Görsel ve belgeler</h2>
               <p className="subtext">
-                Ürün ve ambalaj görselleri gereklidir. Tüm dosyaların toplamı en fazla 4 MB
-                olabilir.
+                Ürün ve ambalaj görselleri isteğe bağlıdır. Eklenen tüm dosyaların toplamı en fazla
+                4 MB olabilir.
               </p>
             </div>
           </div>
           <div className="form-grid">
             <label>
-              Ürün fotoğrafı
+              Ürün fotoğrafı <span className="field-optional">İsteğe bağlı · Önerilir</span>
               <input
                 name="medicineImage"
-                required
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
               />
             </label>
             <label>
-              Ambalaj / seri no fotoğrafı
+              Ambalaj / seri no fotoğrafı <span className="field-optional">İsteğe bağlı · Önerilir</span>
               <input
                 name="packageImage"
-                required
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
               />

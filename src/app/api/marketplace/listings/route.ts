@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         await listMarketplaceListingsForOrganization(
           organizationId!,
-          request.nextUrl.searchParams.get("search") || "",
+          { search: request.nextUrl.searchParams.get("search") || "" },
           readPage(request.nextUrl.searchParams.get("page") || undefined)
         ),
         { headers: { "Cache-Control": "private, no-store" } }
