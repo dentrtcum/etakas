@@ -1,8 +1,6 @@
 import Link from "next/link";
-import { randomUUID } from "node:crypto";
 import { Package, MapPin, Search } from "lucide-react";
 import { PageHeading, EmptyState, formatValue, formatDate, StatusBadge } from "@/components/ui";
-import { SubmitForm } from "@/components/submit-form";
 import { getAccountContext, readPage } from "@/modules/organizations/account-queries";
 import { listMarketplaceListingsForOrganization } from "@/modules/marketplace/marketplace-queries";
 import { requireOrganizationAccess } from "@/lib/auth/authorization";
@@ -64,13 +62,6 @@ export default async function MarketplacePage({
     return `/pazar-yeri?${query.toString()}`;
   };
   const tradingEnabled = isLiveTradingEnabled();
-  const canOrder =
-    tradingEnabled &&
-    requireOrganizationAccess(actor, organization.id, [
-      "ORGANIZATION_OWNER",
-      "ORGANIZATION_MANAGER",
-      "ORDER_MANAGER"
-    ]).allowed;
   const canList = requireOrganizationAccess(actor, organization.id, [
     "ORGANIZATION_OWNER",
     "ORGANIZATION_MANAGER",
@@ -99,23 +90,76 @@ export default async function MarketplacePage({
           </Link>
         </p>
       )}
-      <form method="get" className="marketplace-filters panel-card">
-        <label>Ürün veya barkod<input id="product-search" type="search" name="q" defaultValue={q} placeholder="Ürün adı veya barkod" /></label>
-        <label>İl<input name="province" defaultValue={province} maxLength={80} placeholder="Tümü" /></label>
-        <label>Ürün türü<select name="type" defaultValue={productType ?? ""}><option value="">Tümü</option><option value="HUMAN">Beşeri ilaç</option><option value="VETERINARY">Veteriner ürünü</option></select></label>
-        <label>En az stok<input name="minQuantity" type="number" min={0} max={100000} defaultValue={minQuantity || ""} /></label>
-        <label>SKT aralığı<select name="expiry" defaultValue={expiresWithinDays ?? ""}><option value="">Tümü</option><option value="30">30 gün içinde</option><option value="60">60 gün içinde</option><option value="90">90 gün içinde</option><option value="180">180 gün içinde</option></select></label>
-        <label>Sıralama<select name="sort" defaultValue={sort}><option value="newest">En yeni</option><option value="expiry">SKT yakın</option><option value="value_asc">Değer artan</option><option value="value_desc">Değer azalan</option></select></label>
-        <button className="button button-secondary" type="submit">
-          <Search size={16} />
-          Filtrele
-        </button>
-        {(q || province || productType || minQuantity || expiresWithinDays || sort !== "newest") && (
-          <Link href="/pazar-yeri" className="subtext underline">
-            Filtreyi temizle
-          </Link>
-        )}
-      </form>
+      <details className="panel-card mb-7">
+        <summary className="text-sm font-semibold">Arama ve filtreleri göster</summary>
+        <form method="get" className="marketplace-filters mt-5">
+          <label>
+            Ürün veya barkod
+            <input
+              id="product-search"
+              type="search"
+              name="q"
+              defaultValue={q}
+              placeholder="Ürün adı veya barkod"
+            />
+          </label>
+          <label>
+            İl
+            <input name="province" defaultValue={province} maxLength={80} placeholder="Tümü" />
+          </label>
+          <label>
+            Ürün türü
+            <select name="type" defaultValue={productType ?? ""}>
+              <option value="">Tümü</option>
+              <option value="HUMAN">Beşeri ilaç</option>
+              <option value="VETERINARY">Veteriner ürünü</option>
+            </select>
+          </label>
+          <label>
+            En az stok
+            <input
+              name="minQuantity"
+              type="number"
+              min={0}
+              max={100000}
+              defaultValue={minQuantity || ""}
+            />
+          </label>
+          <label>
+            SKT aralığı
+            <select name="expiry" defaultValue={expiresWithinDays ?? ""}>
+              <option value="">Tümü</option>
+              <option value="30">30 gün içinde</option>
+              <option value="60">60 gün içinde</option>
+              <option value="90">90 gün içinde</option>
+              <option value="180">180 gün içinde</option>
+            </select>
+          </label>
+          <label>
+            Sıralama
+            <select name="sort" defaultValue={sort}>
+              <option value="newest">En yeni</option>
+              <option value="expiry">SKT yakın</option>
+              <option value="value_asc">Değer artan</option>
+              <option value="value_desc">Değer azalan</option>
+            </select>
+          </label>
+          <button className="button button-secondary" type="submit">
+            <Search size={16} />
+            Filtrele
+          </button>
+          {(q ||
+            province ||
+            productType ||
+            minQuantity ||
+            expiresWithinDays ||
+            sort !== "newest") && (
+            <Link href="/pazar-yeri" className="subtext underline">
+              Filtreyi temizle
+            </Link>
+          )}
+        </form>
+      </details>
       {rows.length ? (
         <div className="card-grid">
           {rows.slice(0, 12).map((row) => (
@@ -129,9 +173,15 @@ export default async function MarketplacePage({
                 <p className="subtext">Barkod {row.productGtin}</p>
                 <p className="subtext flex items-center gap-1 mt-2">
                   <MapPin size={13} />
-                  <strong>{row.sellerPublicAlias}</strong> · {row.sellerProvince} / {row.sellerDistrict}
+                  <strong>{row.sellerPublicAlias}</strong> · {row.sellerProvince} /{" "}
+                  {row.sellerDistrict}
                 </p>
-                <Link className="text-link text-xs mt-2 inline-block" href={`/mesajlar?to=${row.sellerOrganizationId}`}>İşletmeye mesaj gönder</Link>
+                <Link
+                  className="text-link text-xs mt-2 inline-block"
+                  href={`/mesajlar?to=${row.sellerOrganizationId}`}
+                >
+                  İşletmeye mesaj gönder
+                </Link>
                 <div className="product-details">
                   <div>
                     <p className="subtext">Kullanılabilir</p>
@@ -143,31 +193,9 @@ export default async function MarketplacePage({
                   </div>
                 </div>
                 <p className="subtext mb-4">SKT: {formatDate(row.minExpiryDate)}</p>
-                {canOrder && (
-                  <SubmitForm
-                    endpoint="/api/orders"
-                    label="Takas için rezerve et"
-                    json
-                    values={{
-                      buyerOrganizationId: organization.id,
-                      listingId: row.id,
-                      idempotencyKey: randomUUID()
-                    }}
-                    redirectTo="/siparisler"
-                  >
-                    <label>
-                      Miktar
-                      <input
-                        type="number"
-                        min={1}
-                        max={row.quantityAvailable}
-                        defaultValue={1}
-                        required
-                        name="quantity"
-                      />
-                    </label>
-                  </SubmitForm>
-                )}
+                <Link className="button button-primary" href={`/pazar-yeri/${row.id}`}>
+                  İlanı ve alım geçmişini incele
+                </Link>
               </div>
             </article>
           ))}
@@ -186,10 +214,7 @@ export default async function MarketplacePage({
       )}
       <div className="pagination">
         {page > 1 ? (
-          <Link
-            className="button button-secondary"
-            href={pageHref(page - 1)}
-          >
+          <Link className="button button-secondary" href={pageHref(page - 1)}>
             ← Önceki
           </Link>
         ) : (
@@ -197,10 +222,7 @@ export default async function MarketplacePage({
         )}
         <span>Sayfa {page}</span>
         {rows.length > 12 ? (
-          <Link
-            className="button button-secondary"
-            href={pageHref(page + 1)}
-          >
+          <Link className="button button-secondary" href={pageHref(page + 1)}>
             Sonraki →
           </Link>
         ) : (

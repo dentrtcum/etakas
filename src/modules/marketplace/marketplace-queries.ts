@@ -1,7 +1,15 @@
 import { and, asc, desc, eq, ne, gt, gte, ilike, lte, or, sql, inArray } from "drizzle-orm";
+import { z } from "zod";
 import { assertOrganizationRead } from "@/lib/db/access";
 import { getDb } from "@/lib/db/client";
-import { listings, organizations, productBatches, productCatalog } from "@/lib/db/schema";
+import {
+  listingImages,
+  listings,
+  orders,
+  organizations,
+  productBatches,
+  productCatalog
+} from "@/lib/db/schema";
 import { assertMarketplaceVisibility } from "@/modules/marketplace/marketplace-policy";
 import type { OrganizationKind, ProductKind } from "@/modules/compliance/trading-policy";
 
@@ -104,4 +112,92 @@ export async function listMarketplaceListingsForOrganization(
       return false;
     }
   });
+}
+
+export async function getMarketplaceListingForOrganization(
+  organizationId: string,
+  listingId: string
+) {
+  await assertOrganizationRead(organizationId);
+  listingId = z.string().uuid().parse(listingId);
+  const db = getDb();
+  const [buyer] = await db
+    .select({ type: organizations.type, status: organizations.status })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  if (!buyer || buyer.status !== "APPROVED") return null;
+
+  const [listing] = await db
+    .select({
+      id: listings.id,
+      status: listings.status,
+      sellerOrganizationId: listings.sellerOrganizationId,
+      sellerPublicAlias: organizations.publicAlias,
+      sellerProvince: organizations.province,
+      sellerDistrict: organizations.district,
+      productName: sql<string>`coalesce(${productBatches.submittedName}, ${productCatalog.name})`,
+      productType: productCatalog.type,
+      productGtin: productCatalog.gtin,
+      activeIngredient: productCatalog.activeIngredient,
+      manufacturer: productCatalog.manufacturer,
+      strength: productCatalog.strength,
+      form: productCatalog.form,
+      packageShape: productCatalog.packageShape,
+      storageConditions: productBatches.storageConditions,
+      quantityAvailable: listings.quantityAvailable,
+      quantityReserved: listings.quantityReserved,
+      unitReferenceValueKurus: listings.unitReferenceValueKurus,
+      minExpiryDate: listings.minExpiryDate,
+      createdAt: listings.createdAt,
+      updatedAt: listings.updatedAt
+    })
+    .from(listings)
+    .innerJoin(organizations, eq(organizations.id, listings.sellerOrganizationId))
+    .innerJoin(productBatches, eq(productBatches.id, listings.batchId))
+    .innerJoin(productCatalog, eq(productCatalog.id, productBatches.productId))
+    .where(
+      and(
+        eq(listings.id, listingId),
+        inArray(listings.status, ["ACTIVE", "PARTIALLY_RESERVED", "SOLD_OUT"]),
+        ne(listings.sellerOrganizationId, organizationId),
+        eq(organizations.status, "APPROVED")
+      )
+    )
+    .limit(1);
+  if (!listing) return null;
+  try {
+    assertMarketplaceVisibility({
+      buyerType: buyer.type as OrganizationKind,
+      productType: listing.productType as ProductKind
+    });
+  } catch {
+    return null;
+  }
+
+  const [images, purchases] = await Promise.all([
+    db
+      .select({ id: listingImages.id, scanStatus: listingImages.scanStatus })
+      .from(listingImages)
+      .where(eq(listingImages.listingId, listingId))
+      .orderBy(listingImages.createdAt),
+    db
+      .select({
+        orderId: orders.id,
+        buyerName: organizations.publicAlias,
+        quantity: orders.quantity,
+        completedAt: orders.completedAt
+      })
+      .from(orders)
+      .innerJoin(organizations, eq(organizations.id, orders.buyerOrganizationId))
+      .where(and(eq(orders.listingId, listingId), eq(orders.status, "COMPLETED")))
+      .orderBy(desc(orders.completedAt), desc(orders.createdAt))
+      .limit(100)
+  ]);
+
+  return {
+    ...listing,
+    images: images.filter((image) => ["UPLOADED", "CLEAN"].includes(image.scanStatus)),
+    purchases
+  };
 }

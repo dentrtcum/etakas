@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, count, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNotNull, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import type { AppSessionUser } from "@/lib/auth/roles";
 import { requireAdmin } from "@/lib/auth/authorization";
@@ -25,6 +25,24 @@ export async function listUnreadAnnouncements(userId: string) {
         eq(notifications.userId, userId),
         eq(notifications.isAnnouncement, true),
         isNull(notifications.readAt)
+      )
+    )
+    .orderBy(notifications.createdAt)
+    .limit(10);
+}
+
+export async function listUnreadPriorityNotifications(userId: string) {
+  return getDb()
+    .select()
+    .from(notifications)
+    .where(
+      and(
+        eq(notifications.userId, userId),
+        isNull(notifications.readAt),
+        or(
+          eq(notifications.isAnnouncement, true),
+          inArray(notifications.type, ["ORDER_RECEIVED", "ORDER_HANDOVER", "ORDER_COMPLETED"])
+        )
       )
     )
     .orderBy(notifications.createdAt)
@@ -82,6 +100,32 @@ export async function markNotificationRead(userId: string, notificationId: strin
   return updated;
 }
 
+export async function deleteUserNotification(
+  userId: string,
+  input: { notificationId?: string; allRead?: boolean }
+) {
+  const parsed = z
+    .object({
+      notificationId: z.string().uuid().optional(),
+      allRead: z.boolean().optional().default(false)
+    })
+    .refine((value) => Boolean(value.notificationId) !== value.allRead)
+    .parse(input);
+  const deleted = await getDb()
+    .delete(notifications)
+    .where(
+      and(
+        eq(notifications.userId, userId),
+        parsed.notificationId ? eq(notifications.id, parsed.notificationId) : undefined,
+        parsed.allRead ? isNotNull(notifications.readAt) : undefined
+      )
+    )
+    .returning({ id: notifications.id });
+  if (parsed.notificationId && !deleted.length)
+    throw new SecurityError("NOTIFICATION_NOT_FOUND", 404);
+  return { deletedCount: deleted.length };
+}
+
 export async function sendAdminAnnouncement({
   actor,
   organizationId,
@@ -110,7 +154,10 @@ export async function sendAdminAnnouncement({
     if (!approvedOrganizations.length) throw new SecurityError("ORGANIZATION_NOT_FOUND", 404);
     const organizationIds = approvedOrganizations.map((item) => item.id);
     const members = await tx
-      .select({ userId: organizationMembers.userId, organizationId: organizationMembers.organizationId })
+      .select({
+        userId: organizationMembers.userId,
+        organizationId: organizationMembers.organizationId
+      })
       .from(organizationMembers)
       .where(inArray(organizationMembers.organizationId, organizationIds));
     const unique = [...new Map(members.map((member) => [member.userId, member])).values()];

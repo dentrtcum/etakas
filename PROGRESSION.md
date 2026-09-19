@@ -1,6 +1,6 @@
 # Etakas ilerleme kaydı
 
-Son güncelleme: 19 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası devam noktasıdır.
+Son güncelleme: 20 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası devam noktasıdır.
 
 ## Güncel durum
 
@@ -13,6 +13,20 @@ Son güncelleme: 19 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 - Genel DNS: `dns1.turhost.com` / `dns2.turhost.com`; kök A kaydı `216.198.79.1`; `www` CNAME kaydı `adb8269a24912b22.vercel-dns-017.com`.
 - Kullanıcı gerçek CAPTCHA, Gmail parola yenileme bağlantısı, giriş doğrulama kodu, parola değişikliği ve oturumlu çıkış akışlarını doğruladı.
 - Kullanıcı 19 Eylül 2026 tarihinde hukuki metinlerin ve ilaç devrine ilişkin mesleki/resmî uygunluğun incelenip onaylandığını bildirdi.
+
+## 20 Eylül 2026 sipariş, ilan ve bildirim çalışması
+
+- [x] İşletme siparişleri “Devam eden siparişler” ve “Geçmiş siparişler” olarak ayrıldı; büyük bölümler ve sipariş kartları açılır/kapanır hale getirildi.
+- [x] Sipariş taraflarına alıcı ve satıcının eczane adı, yetkili adı, telefon, e-posta, il/ilçe ve açık adres bilgileri yalnızca sipariş tarafları ile süper admin için gösteriliyor.
+- [x] Pazar yeri ilan kartları ayrı, büyük ilan ayrıntı sayfasına bağlandı. Ürün ayrıntıları, görseller, satıcı, rezervasyon alanı ve tamamlanmış alımlarda alan işletme ile miktar gösteriliyor.
+- [x] Pazar yeri filtreleri açılır/kapanır hale getirildi; aktif ilan görsellerine yalnızca onaylı ve ürün türüyle uyumlu pazar yeri katılımcıları erişebiliyor.
+- [x] Admin sipariş ekranı tüm durumları listeliyor; sipariş, ürün, taraf iletişim bilgileri, zamanlar, teslim kayıtları, teslim açıklaması, itirazlar ve yönetim işlemleri açılır kartlarda gösteriliyor.
+- [x] Yeni sipariş, satıcı teslim bildirimi ve sipariş tamamlanması ilgili işletme üyelerine bildirim oluşturuyor. Bu bildirimler girişte duyurular gibi büyük bir pencere olarak gösteriliyor ve Siparişlerim sayfasına güvenli biçimde yönlendiriyor.
+- [x] Bildirim geçmişi açılır kartlara dönüştürüldü; kullanıcı yalnızca kendisine ait tek bildirimi veya okunmuş bildirimlerinin tamamını silebiliyor.
+- [x] Yeni erişim ve bildirim davranışları gerçek yerel PostgreSQL üzerinde 5 entegrasyon testiyle doğrulandı.
+- [x] Masaüstü ve mobil Chrome’da 6 uçtan uca test geçti: ilan ayrıntısı/alım geçmişi, aktif-geçmiş sipariş ayrımı, iki taraf bilgileri, büyük teslim bildirimi, bildirim silme, admin tam sipariş ayrıntısı, yetki ayrımı ve güvenli çıkış. Tarayıcı konsol hatası bulunmadı.
+- [x] Son doğrulama: TypeScript, ESLint, 31 dosya / 133 birim testi, gerçek PostgreSQL entegrasyon testleri ve 28 sayfalı Next.js Production build geçti.
+- [ ] Bu çalışma için GitHub `main` gönderimi, Vercel Production dağıtımı ve canlı smoke testi yapılacak.
 
 ## 19 Eylül 2026 son kabul çalışması
 

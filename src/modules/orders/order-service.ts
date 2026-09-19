@@ -242,7 +242,9 @@ export async function createOrderReservation(actor: AppSessionUser, input: Order
         .from(ledgerEntries)
         .where(eq(ledgerEntries.accountId, sellerAccount.id));
       const [pendingSellerCredits] = await tx
-        .select({ value: sql<number>`coalesce(sum(${orders.totalReferenceValueKurus}), 0)::bigint` })
+        .select({
+          value: sql<number>`coalesce(sum(${orders.totalReferenceValueKurus}), 0)::bigint`
+        })
         .from(orders)
         .where(
           and(
@@ -338,6 +340,14 @@ export async function createOrderReservation(actor: AppSessionUser, input: Order
       reason: "Order reserved balance and stock atomically."
     });
 
+    await notifyOrganization(
+      tx,
+      listing.sellerOrganizationId,
+      "ORDER_RECEIVED",
+      "Yeni sipariş aldınız",
+      `${order.id.slice(0, 8)} numaralı siparişte ${input.quantity} adet ürün rezerve edildi. Ayrıntıları Siparişlerim bölümünden inceleyin.`
+    );
+
     return order;
   });
 }
@@ -400,6 +410,13 @@ export async function markSellerHandover(actor: AppSessionUser, orderId: string)
       safeAfter: { status: "BUYER_CONFIRMATION_PENDING" },
       correlationId: randomUUID()
     });
+    await notifyOrganization(
+      tx,
+      order.buyerOrganizationId,
+      "ORDER_HANDOVER",
+      "Satıcı teslim bilgisini iletti",
+      `${order.id.slice(0, 8)} numaralı sipariş için satıcı teslim bildirimi yaptı. Ürünü teslim aldıktan sonra Siparişlerim bölümünden onaylayın.`
+    );
     return updated;
   });
 }
@@ -566,6 +583,30 @@ export async function cancelOrderReservation(actor: AppSessionUser, orderId: str
 }
 
 type OrderTransaction = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
+
+async function notifyOrganization(
+  tx: OrderTransaction,
+  organizationId: string,
+  type: string,
+  title: string,
+  body: string
+) {
+  const recipients = await tx
+    .select({ userId: organizationMembers.userId })
+    .from(organizationMembers)
+    .where(eq(organizationMembers.organizationId, organizationId));
+  if (!recipients.length) return;
+  await tx.insert(notifications).values(
+    [...new Set(recipients.map((recipient) => recipient.userId))].map((userId) => ({
+      userId,
+      organizationId,
+      type,
+      title,
+      body
+    }))
+  );
+}
+
 async function completeOrderInTransaction(
   tx: OrderTransaction,
   orderId: string,
@@ -649,7 +690,10 @@ async function completeOrderInTransaction(
       throw new OrderFlowError("Buyer lower credit limit would be exceeded.");
     }
   }
-  if (sellerLimits?.creditUpperLimitKurus !== null && sellerLimits?.creditUpperLimitKurus !== undefined) {
+  if (
+    sellerLimits?.creditUpperLimitKurus !== null &&
+    sellerLimits?.creditUpperLimitKurus !== undefined
+  ) {
     const sellerEntries = await tx
       .select({ direction: ledgerEntries.direction, amountKurus: ledgerEntries.amountKurus })
       .from(ledgerEntries)
@@ -663,7 +707,13 @@ async function completeOrderInTransaction(
           inArray(orders.status, [...OPEN_ORDER_STATUSES])
         )
       );
-    if (exceedsUpperCreditLimit(calculateLedgerBalance(sellerEntries), Number(pendingSellerCredits.value), sellerLimits.creditUpperLimitKurus)) {
+    if (
+      exceedsUpperCreditLimit(
+        calculateLedgerBalance(sellerEntries),
+        Number(pendingSellerCredits.value),
+        sellerLimits.creditUpperLimitKurus
+      )
+    ) {
       throw new OrderFlowError("Seller upper credit limit would be exceeded.");
     }
   }
@@ -746,6 +796,13 @@ async function completeOrderInTransaction(
 
   if (expectedStatus && actorUserId)
     await tx.insert(deliveryConfirmations).values({ orderId, actorUserId, kind: "BUYER_RECEIVED" });
+  await notifyOrganization(
+    tx,
+    order.sellerOrganizationId,
+    "ORDER_COMPLETED",
+    "Teslim alındı ve sipariş tamamlandı",
+    `${order.id.slice(0, 8)} numaralı siparişin teslimi alıcı tarafından onaylandı. Takas bakiyesi hesaplara işlendi.`
+  );
   return updated;
 }
 
