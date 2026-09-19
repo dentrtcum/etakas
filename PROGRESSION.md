@@ -16,6 +16,8 @@ Son güncelleme: 19 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 
 ## 19 Eylül 2026 son kabul çalışması
 
+- [x] İşletme kaydındaki il ve ilçe alanları 81 il ve seçilen ile bağlı 973 ilçeyi sunan listelere dönüştürüldü; API geçersiz il-ilçe eşleşmelerini reddediyor.
+- [x] İl-ilçe değişikliği TypeScript, ESLint, 31 dosya / 133 birim testi ve Production build ile doğrulandı. Tarayıcıda il seçilmeden ilçe alanının kapalı, Kars seçildiğinde yalnızca bağlı sekiz ilçenin açık olduğu ve konsol hatası bulunmadığı kontrol edildi.
 - [x] Boş üst kredi sınırının `0 TL` sayılması düzeltildi; boş değer yeniden sınırsız üst limit oluşturuyor.
 - [x] Adminin mevcut bakiye düzeltmesine istemci üretimli idempotency anahtarı eklendi. Aynı istek tekrarlandığında bakiye ikinci kez değişmiyor; farklı içerikle anahtar tekrar kullanılırsa `409` dönüyor.
 - [x] Kalan satış kapasitesi hesabına devam eden satışlardan beklenen tutar eklendi; kullanıcı arayüzünde ayrıca gösteriliyor.

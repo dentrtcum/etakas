@@ -14,8 +14,8 @@ const validApplication = {
   email: "basvuru@example.invalid",
   password: "very-secure-password",
   phone: "+905551112233",
-  province: "Istanbul",
-  district: "Kadikoy",
+  province: "İstanbul",
+  district: "Kadıköy",
   address: "Sentetik Mahallesi Test Caddesi No: 1",
   privacyAcknowledged: true,
   termsAccepted: true,
@@ -37,6 +37,12 @@ describe("organization application", () => {
     });
   });
 
+  it("rejects a district that does not belong to the selected province", () => {
+    expect(() =>
+      validateOrganizationApplication({ ...validApplication, district: "Çankaya" })
+    ).toThrow("Geçerli bir il ve ilçe seçin.");
+  });
+
   it("requires privacy acknowledgment and the current terms version", () => {
     expect(() =>
       validateOrganizationApplication({ ...validApplication, privacyAcknowledged: false })
@@ -54,8 +60,8 @@ describe("organization application", () => {
       toSafeApplicationAuditSummary(validateOrganizationApplication(validApplication))
     ).toEqual({
       type: "PHARMACY",
-      province: "Istanbul",
-      district: "Kadikoy",
+      province: "İstanbul",
+      district: "Kadıköy",
       emailDomain: "example.invalid",
       hasGln: true,
       privacyAcknowledged: true,

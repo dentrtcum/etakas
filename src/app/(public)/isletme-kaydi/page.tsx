@@ -4,14 +4,13 @@ import { FileText, Info } from "lucide-react";
 import { LegalAcceptance } from "@/components/legal-acceptance";
 import { Captcha } from "@/components/captcha";
 import { getLegalReadiness } from "@/lib/legal/config";
+import { ProvinceDistrictFields } from "./province-district-fields";
 const fields = [
   ["pharmacyName", "Eczane / işletme adı", "text", "organization"],
   ["authorizedPersonName", "Yetkili kişi adı soyadı", "text", "name"],
   ["gln", "GLN numarası", "text", "off"],
   ["email", "E-posta adresi", "email", "email"],
-  ["phone", "Telefon", "tel", "tel"],
-  ["province", "İl", "text", "address-level1"],
-  ["district", "İlçe", "text", "address-level2"]
+  ["phone", "Telefon", "tel", "tel"]
 ] as const;
 const documents = [
   ["licenseDocument", "Ruhsat / faaliyet izin belgesi"],
@@ -74,6 +73,7 @@ export default function RegistrationPage() {
                 />
               </label>
             ))}
+            <ProvinceDistrictFields />
             <label className="md:col-span-2">
               Parola
               <input
