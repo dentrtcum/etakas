@@ -314,6 +314,7 @@ export const productCatalog = pgTable(
     licenseHolder: varchar("license_holder", { length: 180 }),
     gtin: varchar("gtin", { length: 32 }).notNull(),
     classificationCode: varchar("classification_code", { length: 80 }),
+    source: varchar("source", { length: 24 }).notNull().default("MANUAL"),
     controlCategory: varchar("control_category", { length: 80 }).notNull().default("STANDARD"),
     requiresColdChain: boolean("requires_cold_chain").notNull().default(false),
     isBiological: boolean("is_biological").notNull().default(false),
@@ -324,7 +325,35 @@ export const productCatalog = pgTable(
   (table) => [
     uniqueIndex("product_catalog_gtin_unique").on(table.gtin),
     index("product_catalog_search_idx").on(table.name, table.activeIngredient, table.gtin),
-    index("product_catalog_type_idx").on(table.type)
+    index("product_catalog_type_idx").on(table.type),
+    check("product_catalog_source_check", sql`${table.source} in ('MANUAL', 'TITCK')`)
+  ]
+);
+
+export const titckSkrsProducts = pgTable(
+  "titck_skrs_products",
+  {
+    gtin: varchar("gtin", { length: 32 }).primaryKey(),
+    name: varchar("name", { length: 240 }).notNull(),
+    atcCode: varchar("atc_code", { length: 32 }),
+    atcName: varchar("atc_name", { length: 240 }),
+    manufacturer: varchar("manufacturer", { length: 240 }),
+    prescriptionType: varchar("prescription_type", { length: 120 }),
+    status: varchar("status", { length: 40 }).notNull(),
+    description: text("description"),
+    isEssential: boolean("is_essential").notNull().default(false),
+    isPediatricEssential: boolean("is_pediatric_essential").notNull().default(false),
+    isNewbornEssential: boolean("is_newborn_essential").notNull().default(false),
+    activeSince: date("active_since"),
+    sourcePublishedAt: date("source_published_at").notNull(),
+    sourceDocumentUrl: text("source_document_url").notNull(),
+    importedAt: timestamp("imported_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    index("titck_skrs_products_name_idx").on(table.name),
+    index("titck_skrs_products_atc_idx").on(table.atcCode),
+    index("titck_skrs_products_published_idx").on(table.sourcePublishedAt),
+    check("titck_skrs_products_gtin_check", sql`${table.gtin} ~ '^[0-9]{8,14}$'`)
   ]
 );
 
@@ -649,7 +678,9 @@ export const notifications = pgTable(
       onDelete: "cascade"
     }),
     type: varchar("type", { length: 120 }).notNull(),
-    messageId: uuid("message_id").references(() => conversationMessages.id, { onDelete: "set null" }),
+    messageId: uuid("message_id").references(() => conversationMessages.id, {
+      onDelete: "set null"
+    }),
     title: varchar("title", { length: 180 }).notNull(),
     body: text("body").notNull(),
     isAnnouncement: boolean("is_announcement").notNull().default(false),

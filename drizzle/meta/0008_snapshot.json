@@ -1,6 +1,6 @@
 {
-  "id": "78fb3f90-cab0-4d7d-adbb-ef6e0c12f68b",
-  "prevId": "bdfd4556-a384-4acd-a187-80e8f442a05b",
+  "id": "ea238e2e-26a9-4d39-9a03-556373a59264",
+  "prevId": "78fb3f90-cab0-4d7d-adbb-ef6e0c12f68b",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -3426,6 +3426,13 @@
           "primaryKey": false,
           "notNull": false
         },
+        "source": {
+          "name": "source",
+          "type": "varchar(24)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'MANUAL'"
+        },
         "control_category": {
           "name": "control_category",
           "type": "varchar(80)",
@@ -3532,7 +3539,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "product_catalog_source_check": {
+          "name": "product_catalog_source_check",
+          "value": "\"product_catalog\".\"source\" in ('MANUAL', 'TITCK')"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.rate_limit_buckets": {
@@ -4122,6 +4134,164 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.titck_skrs_products": {
+      "name": "titck_skrs_products",
+      "schema": "",
+      "columns": {
+        "gtin": {
+          "name": "gtin",
+          "type": "varchar(32)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(240)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "atc_code": {
+          "name": "atc_code",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "atc_name": {
+          "name": "atc_name",
+          "type": "varchar(240)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "manufacturer": {
+          "name": "manufacturer",
+          "type": "varchar(240)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "prescription_type": {
+          "name": "prescription_type",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(40)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_essential": {
+          "name": "is_essential",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "is_pediatric_essential": {
+          "name": "is_pediatric_essential",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "is_newborn_essential": {
+          "name": "is_newborn_essential",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "active_since": {
+          "name": "active_since",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_published_at": {
+          "name": "source_published_at",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_document_url": {
+          "name": "source_document_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "imported_at": {
+          "name": "imported_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "titck_skrs_products_name_idx": {
+          "name": "titck_skrs_products_name_idx",
+          "columns": [
+            {
+              "expression": "name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "titck_skrs_products_atc_idx": {
+          "name": "titck_skrs_products_atc_idx",
+          "columns": [
+            {
+              "expression": "atc_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "titck_skrs_products_published_idx": {
+          "name": "titck_skrs_products_published_idx",
+          "columns": [
+            {
+              "expression": "source_published_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "titck_skrs_products_gtin_check": {
+          "name": "titck_skrs_products_gtin_check",
+          "value": "\"titck_skrs_products\".\"gtin\" ~ '^[0-9]{8,14}$'"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.user_roles": {

@@ -50,6 +50,13 @@
       "when": 1789819707759,
       "tag": "0007_message_read_tracking",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789856104740,
+      "tag": "0008_titck_skrs_catalog",
+      "breakpoints": true
     }
   ]
 }

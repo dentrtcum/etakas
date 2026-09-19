@@ -18,10 +18,17 @@ vi.mock("@/lib/auth/current-user", () => ({ getCurrentAppUser: async () => curre
 const { getDb } = await import("@/lib/db/client");
 const { createOrderReservation, markSellerHandover, confirmBuyerDelivery, cancelOrderReservation } =
   await import("@/modules/orders/order-service");
+const { submitListingForReview } = await import("@/modules/listings/listing-service");
 const { POST } = await import("@/app/api/admin/credit-limits/route");
+const { POST: manageBarcode } = await import("@/app/api/admin/barcodes/route");
 const { NextRequest } = await import("next/server");
 const db = getDb();
 let admin: AppSessionUser;
+
+function uniqueBarcode() {
+  const value = BigInt(`0x${randomUUID().replaceAll("-", "")}`) % 10_000_000_000_000n;
+  return value.toString().padStart(14, "0");
+}
 
 async function party(lower = 100_000, upper: number | null = 100_000) {
   const [user] = await db
@@ -127,6 +134,90 @@ beforeAll(async () => {
   };
 });
 describe("real PostgreSQL accounting", () => {
+  it("prefers TİTCK medicine data and preserves the manual fallback", async () => {
+    const owner = await party();
+    const officialBarcode = uniqueBarcode();
+    await db.insert(schema.titckSkrsProducts).values({
+      gtin: officialBarcode,
+      name: "Resmi TİTCK ürünü",
+      atcCode: "N02BE01",
+      atcName: "Parasetamol",
+      manufacturer: "Resmi ruhsat sahibi",
+      prescriptionType: "Beyaz Reçete",
+      status: "Aktif",
+      sourcePublishedAt: "2026-09-15",
+      sourceDocumentUrl: "https://titck.gov.tr/test.xlsx"
+    });
+    await submitListingForReview(owner.actor, {
+      barcode: officialBarcode,
+      productName: "İstemciden değiştirilmeye çalışılan ad",
+      expiryDate: "2099-12-31",
+      quantity: 2,
+      unitReferenceValueKurus: 1000
+    });
+    const [officialProduct] = await db
+      .select()
+      .from(schema.productCatalog)
+      .where(eq(schema.productCatalog.gtin, officialBarcode));
+    expect(officialProduct).toMatchObject({
+      name: "Resmi TİTCK ürünü",
+      source: "TITCK",
+      activeIngredient: "Parasetamol",
+      classificationCode: "N02BE01",
+      manufacturer: "Resmi ruhsat sahibi"
+    });
+    current.actor = admin;
+    const officialAdminResponse = await manageBarcode(
+      new NextRequest("http://localhost:3000/api/admin/barcodes", {
+        method: "POST",
+        headers: { Origin: "http://localhost:3000", "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "UPSERT",
+          gtin: officialBarcode,
+          name: "Admin manuel adı",
+          type: "HUMAN",
+          isActive: true
+        })
+      }),
+      undefined
+    );
+    expect(officialAdminResponse.status).toBe(409);
+    expect(await officialAdminResponse.json()).toEqual({ error: "BARCODE_MANAGED_BY_TITCK" });
+
+    const manualBarcode = uniqueBarcode();
+    await expect(
+      submitListingForReview(owner.actor, {
+        barcode: manualBarcode,
+        expiryDate: "2099-12-31",
+        quantity: 1,
+        unitReferenceValueKurus: 1000
+      })
+    ).rejects.toThrow("Product name is required");
+    await submitListingForReview(owner.actor, {
+      barcode: manualBarcode,
+      productName: "Manuel katalog ürünü",
+      activeIngredient: "Manuel etken madde",
+      manufacturer: "Manuel üretici",
+      strength: "100 mg",
+      form: "Tablet",
+      expiryDate: "2099-12-31",
+      quantity: 1,
+      unitReferenceValueKurus: 1000
+    });
+    const [manualProduct] = await db
+      .select()
+      .from(schema.productCatalog)
+      .where(eq(schema.productCatalog.gtin, manualBarcode));
+    expect(manualProduct).toMatchObject({
+      name: "Manuel katalog ürünü",
+      source: "MANUAL",
+      activeIngredient: "Manuel etken madde",
+      manufacturer: "Manuel üretici",
+      strength: "100 mg",
+      form: "Tablet"
+    });
+  });
+
   it("isolates private conversations and only marks explicitly displayed messages read", async () => {
     const { sendOrganizationMessage, listConversationMessages, listOwnSupportTickets } =
       await import("@/modules/communications/service");

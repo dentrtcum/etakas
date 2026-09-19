@@ -14,6 +14,18 @@ Son güncelleme: 20 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 - Kullanıcı gerçek CAPTCHA, Gmail parola yenileme bağlantısı, giriş doğrulama kodu, parola değişikliği ve oturumlu çıkış akışlarını doğruladı.
 - Kullanıcı 19 Eylül 2026 tarihinde hukuki metinlerin ve ilaç devrine ilişkin mesleki/resmî uygunluğun incelenip onaylandığını bildirdi.
 
+## 20 Eylül 2026 TİTCK SKRS barkod kataloğu
+
+- [x] Resmi **TİTCK SKRS E-Reçete İlaç ve Diğer Farmasötik Ürünler Listesi** için platformun manuel kataloğundan ayrı `titck_skrs_products` tablosu ve `0008_titck_skrs_catalog` migration'ı oluşturuldu.
+- [x] TİTCK'nin 15 Eylül 2026 tarihli resmi XLSX dosyasındaki etkin ürün sayfası bağımlılıksız normalizer ile işlendi; 7.945 benzersiz etkin barkod yerel kabul veritabanına aktarıldı.
+- [x] Barkod araması TİTCK → manuel platform kataloğu sırasını izliyor. Resmi eşleşme yoksa kullanıcı açıkça uyarılıyor, manuel alanlar açılıyor ve barkod mevcut yöntemle kataloğa kaydediliyor.
+- [x] İlan gönderiminde resmi ürün adı/ATC/üretici bilgileri sunucuda yeniden doğrulanıyor. TİTCK kaynaklı operasyon kayıtları adminin düzenlenebilir barkod kataloğundan ayrıldı ve gizlendi.
+- [x] USB barkod okuyucuların rakam dizisi + `Enter` davranışı, elle giriş ve mevcut kamera tarama desteği birlikte korunuyor.
+- [x] İçe aktarma işlemi 1.000'den az satırlı şüpheli dosyayı ve mevcut sürümden eski resmi listeyi reddediyor; güncelleme tek transaction içinde uygulanıyor.
+- [x] Yerel doğrulama: TypeScript, ESLint, 31 dosya / 134 birim testi, gerçek PostgreSQL üzerinde 6 entegrasyon testi, 28 sayfalı Production build ve masaüstü/mobil Chromium'da 6 uçtan uca test geçti. Tarayıcı konsol hatası bulunmadı.
+- [x] Canlı Neon yedeği alındı ve ayrı yerel veritabanına geri yükleme provası yapıldı. `0008` migration'ı uygulandı; 7.945 etkin resmi kayıt içe aktarıldı ve mevcut iş kayıtlarının korunduğu bağımsız sorguyla doğrulandı.
+- [ ] Kodu GitHub/Vercel Production'a yayımlamak ve kanonik alanda smoke testi yapmak.
+
 ## 20 Eylül 2026 sipariş, ilan ve bildirim çalışması
 
 - [x] İşletme siparişleri “Devam eden siparişler” ve “Geçmiş siparişler” olarak ayrıldı; büyük bölümler ve sipariş kartları açılır/kapanır hale getirildi.
@@ -150,6 +162,7 @@ Son güncelleme: 20 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 
 - Migration ayrıntıları: [MIGRATION-0005-REPORT.md](docs/MIGRATION-0005-REPORT.md). Rapordaki servis/yayın sınırları migration anını anlatır; güncel durum bu dosyadadır.
 - Platform iletişim migration ayrıntıları: [MIGRATION-0006-REPORT.md](docs/MIGRATION-0006-REPORT.md).
+- TİTCK SKRS migration ayrıntıları: [MIGRATION-0008-REPORT.md](docs/MIGRATION-0008-REPORT.md).
 - Yedek: `.cache/backups/etakas-before-0005-2026-09-13T11-27-42-961Z.dump`, 104851 bayt. SHA-256 ve `pg_restore --list` doğrulandı; geri yükleme provası bekliyor. Blob dosyaları ve şifreleme anahtarları arşive dahil değil.
 - Yedek: `.cache/backups/etakas-before-0006-2026-09-18T20-39-20-639Z.dump`, 115401 bayt. SHA-256 `e1ea708cd92e9f969393a123c51810b3f9174624edd2fddda4d74eba5558fdc1`; `pg_restore --list` doğrulandı, geri yükleme provası bekliyor.
 - `.env.migration.local` ve `.cache/` Git dışındadır. Sırları sohbete, loglara veya Git'e yazma.

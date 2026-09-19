@@ -1,4 +1,4 @@
-import { desc, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { organizations, productCatalog, users, userRoles } from "@/lib/db/schema";
 import { assertAdminRead } from "@/lib/db/access";
@@ -35,6 +35,7 @@ export async function listProductCatalog(page = 1) {
   return getDb()
     .select()
     .from(productCatalog)
+    .where(eq(productCatalog.source, "MANUAL"))
     .orderBy(desc(productCatalog.updatedAt), productCatalog.name)
     .limit(51)
     .offset((page - 1) * 50);

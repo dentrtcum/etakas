@@ -44,3 +44,5 @@ Gmail geçici gönderici olarak desteklenir; özel alan adı zorunlu değildir. 
 Yeni parolalar 12–128 karakter olmalıdır ve zayıf parola kontrolünden geçmelidir. Eski kısa parolası olan hesaplar e-posta üzerinden parola yenilemeden yeni sürümde giriş yapamaz. E-posta hizmeti yapılandırılmadan canlı sürümü değiştirmek bu hesapları erişimsiz bırakabilir.
 
 Mimari ve sınırlar: [ARCHITECTURE](docs/ARCHITECTURE.md), [SECURITY-CHECKLIST](docs/SECURITY-CHECKLIST.md), [THREAT-MODEL](docs/THREAT-MODEL.md), [DEPENDENCY-AUDIT](docs/DEPENDENCY-AUDIT.md).
+
+TİTCK SKRS ilaç barkod kataloğunun kaynağı, yenileme ve doğrulama adımları: [TITCK-SKRS](docs/TITCK-SKRS.md).

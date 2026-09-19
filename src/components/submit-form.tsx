@@ -3,7 +3,8 @@ import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { LoaderCircle, CircleAlert, CheckCircle2 } from "lucide-react";
 const errors: Record<string, string> = {
-  IDEMPOTENCY_CONFLICT: "Önceki bakiye işlemi farklı bilgilerle kaydedilmiş. Hesap hareketlerini kontrol edip sayfayı yenileyin.",
+  IDEMPOTENCY_CONFLICT:
+    "Önceki bakiye işlemi farklı bilgilerle kaydedilmiş. Hesap hareketlerini kontrol edip sayfayı yenileyin.",
   INVALID_ORIGIN: "Güvenlik doğrulaması başarısız. Sayfayı yenileyip tekrar deneyin.",
   RATE_LIMITED: "Kısa sürede çok fazla işlem yaptınız. Bir süre bekleyip tekrar deneyin.",
   CAPTCHA_REQUIRED: "Lütfen güvenlik doğrulamasını tamamlayın.",
@@ -36,6 +37,8 @@ const errors: Record<string, string> = {
     "Bu bakiye değişikliği hesabın alt veya üst sınırını aşar. Önce kredi sınırlarını güncelleyin.",
   LEDGER_ACCOUNT_MISSING: "İşletmenin takas hesabı bulunamadı. Hesap kurulumunu kontrol edin.",
   BARCODE_ALREADY_EXISTS: "Bu barkod katalogda başka bir ürüne bağlı.",
+  BARCODE_MANAGED_BY_TITCK:
+    "Bu barkod resmi TİTCK/SKRS kataloğunda yönetiliyor; manuel kataloğa eklenemez veya burada değiştirilemez.",
   INVALID_MESSAGE: "Mesaj alanını kontrol edin.",
   INVALID_SUPPORT_REQUEST: "Şikayet veya talep bilgilerini kontrol edin.",
   "Insufficient listing stock.": "İstenen miktar için yeterli stok bulunmuyor.",
@@ -44,6 +47,8 @@ const errors: Record<string, string> = {
     "İlan göndermek için işletmenizin onaylanması gerekiyor.",
   "Expired products cannot be listed.": "Son kullanma tarihi gelecekte olmalıdır.",
   "High-risk products are blocked by default.": "Bu ürün kategorisi ilan vermeye uygun değil.",
+  "Product name is required when barcode is not found.":
+    "Barkod TİTCK/SKRS veya platform kataloğunda bulunamadı. İlaç adını manuel olarak girin.",
   "Product is expired or unavailable.": "Ürünün süresi dolmuş veya ürün kullanıma kapatılmış.",
   "Order cannot be completed from current status.":
     "Siparişin güncel durumu tamamlamaya uygun değil."

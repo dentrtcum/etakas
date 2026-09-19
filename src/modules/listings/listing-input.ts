@@ -6,6 +6,10 @@ export const listingSubmissionSchema = z.object({
     .trim()
     .regex(/^\d{8,14}$/),
   productName: z.string().trim().min(3).max(240).optional(),
+  activeIngredient: z.string().trim().max(240).optional(),
+  manufacturer: z.string().trim().max(240).optional(),
+  strength: z.string().trim().max(120).optional(),
+  form: z.string().trim().max(120).optional(),
   lotNumber: z.string().trim().max(120).optional(),
   expiryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   quantity: z.coerce.number().int().positive().max(100000),
@@ -23,6 +27,10 @@ export function parseListingSubmissionFormData(formData: FormData) {
   return parseListingSubmission({
     barcode: formData.get("barcode"),
     productName: formData.get("productName") || undefined,
+    activeIngredient: formData.get("activeIngredient") || undefined,
+    manufacturer: formData.get("manufacturer") || undefined,
+    strength: formData.get("strength") || undefined,
+    form: formData.get("form") || undefined,
     lotNumber: formData.get("lotNumber") || undefined,
     expiryDate: formData.get("expiryDate"),
     quantity: formData.get("quantity"),

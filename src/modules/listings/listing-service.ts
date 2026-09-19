@@ -9,7 +9,8 @@ import {
   listings,
   organizations,
   productBatches,
-  productCatalog
+  productCatalog,
+  titckSkrsProducts
 } from "@/lib/db/schema";
 import { encryptField } from "@/lib/encryption/field-crypto";
 import { serverEnv } from "@/lib/env";
@@ -109,44 +110,106 @@ export async function submitListingForReview(
         throw new ListingSubmissionError("Only approved organizations can submit listings.");
       }
 
-      const [existingProduct] = await tx
-        .select({
-          id: productCatalog.id,
-          type: productCatalog.type,
-          isActive: productCatalog.isActive,
-          requiresColdChain: productCatalog.requiresColdChain,
-          isBiological: productCatalog.isBiological,
-          controlCategory: productCatalog.controlCategory
-        })
-        .from(productCatalog)
-        .where(and(eq(productCatalog.gtin, input.barcode), eq(productCatalog.isActive, true)))
-        .limit(1);
+      const [[titckProduct], [existingProduct]] = await Promise.all([
+        tx
+          .select({
+            name: titckSkrsProducts.name,
+            atcCode: titckSkrsProducts.atcCode,
+            atcName: titckSkrsProducts.atcName,
+            manufacturer: titckSkrsProducts.manufacturer
+          })
+          .from(titckSkrsProducts)
+          .where(
+            and(eq(titckSkrsProducts.gtin, input.barcode), eq(titckSkrsProducts.status, "Aktif"))
+          )
+          .limit(1),
+        tx
+          .select({
+            id: productCatalog.id,
+            source: productCatalog.source,
+            type: productCatalog.type,
+            isActive: productCatalog.isActive,
+            requiresColdChain: productCatalog.requiresColdChain,
+            isBiological: productCatalog.isBiological,
+            controlCategory: productCatalog.controlCategory
+          })
+          .from(productCatalog)
+          .where(eq(productCatalog.gtin, input.barcode))
+          .limit(1)
+      ]);
 
-      const product =
-        existingProduct ??
-        (
-          await tx
-            .insert(productCatalog)
-            .values({
-              name: input.productName ?? `Barkod ${input.barcode}`,
-              type: inferProductType(organization.type),
-              gtin: input.barcode,
-              controlCategory: "STANDARD",
-              isActive: true
-            })
-            .onConflictDoUpdate({
-              target: productCatalog.gtin,
-              set: { updatedAt: new Date() }
-            })
-            .returning({
-              id: productCatalog.id,
-              type: productCatalog.type,
-              isActive: productCatalog.isActive,
-              requiresColdChain: productCatalog.requiresColdChain,
-              isBiological: productCatalog.isBiological,
-              controlCategory: productCatalog.controlCategory
-            })
-        )[0];
+      const returningProduct = {
+        id: productCatalog.id,
+        type: productCatalog.type,
+        isActive: productCatalog.isActive,
+        requiresColdChain: productCatalog.requiresColdChain,
+        isBiological: productCatalog.isBiological,
+        controlCategory: productCatalog.controlCategory
+      };
+
+      let product;
+      if (titckProduct) {
+        [product] = await tx
+          .insert(productCatalog)
+          .values({
+            name: titckProduct.name,
+            type: "HUMAN",
+            gtin: input.barcode,
+            source: "TITCK",
+            activeIngredient: titckProduct.atcName,
+            classificationCode: titckProduct.atcCode,
+            manufacturer: titckProduct.manufacturer,
+            controlCategory: "STANDARD",
+            isActive: true
+          })
+          .onConflictDoUpdate({
+            target: productCatalog.gtin,
+            set: {
+              name: titckProduct.name,
+              type: "HUMAN",
+              source: "TITCK",
+              activeIngredient: titckProduct.atcName,
+              classificationCode: titckProduct.atcCode,
+              manufacturer: titckProduct.manufacturer,
+              isActive: true,
+              updatedAt: new Date()
+            }
+          })
+          .returning(returningProduct);
+      } else if (existingProduct?.source === "MANUAL") {
+        product = existingProduct;
+      } else {
+        if (!input.productName) {
+          throw new ListingSubmissionError("Product name is required when barcode is not found.");
+        }
+        [product] = await tx
+          .insert(productCatalog)
+          .values({
+            name: input.productName,
+            type: inferProductType(organization.type),
+            gtin: input.barcode,
+            source: "MANUAL",
+            activeIngredient: input.activeIngredient,
+            manufacturer: input.manufacturer,
+            strength: input.strength,
+            form: input.form,
+            controlCategory: "STANDARD",
+            isActive: true
+          })
+          .onConflictDoUpdate({
+            target: productCatalog.gtin,
+            set: {
+              name: input.productName,
+              source: "MANUAL",
+              activeIngredient: input.activeIngredient,
+              manufacturer: input.manufacturer,
+              strength: input.strength,
+              form: input.form,
+              updatedAt: new Date()
+            }
+          })
+          .returning(returningProduct);
+      }
 
       if (!product) {
         throw new ListingSubmissionError("Product catalog item could not be prepared.");
@@ -167,7 +230,7 @@ export async function submitListingForReview(
         .values({
           organizationId: organization.id,
           productId: product.id,
-          submittedName: existingProduct ? null : input.productName,
+          submittedName: null,
           lotNumberEncrypted: encryptField(
             input.lotNumber || buildSystemLotNumber(input.barcode, input.expiryDate),
             encryptionKey

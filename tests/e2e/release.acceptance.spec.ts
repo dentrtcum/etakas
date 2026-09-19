@@ -19,6 +19,9 @@ let messageId = "";
 let listingId = "";
 let orderId = "";
 let productName = "";
+let titckBarcode = "";
+let titckProductName = "";
+let hiddenTitckCatalogName = "";
 const browserErrors = new WeakMap<object, string[]>();
 
 test.beforeEach(async ({ context, page }) => {
@@ -48,12 +51,18 @@ test.beforeAll(async () => {
   const orgId = randomUUID();
   const senderOrgId = randomUUID();
   const productId = randomUUID();
+  const hiddenTitckProductId = randomUUID();
   const batchId = randomUUID();
   conversationId = randomUUID();
   messageId = randomUUID();
   listingId = randomUUID();
   orderId = randomUUID();
   productName = `Acceptance ilacı ${productId.slice(0, 8)}`;
+  titckBarcode = (BigInt(`0x${randomBytes(7).toString("hex")}`) % 10_000_000_000_000n)
+    .toString()
+    .padStart(14, "0");
+  titckProductName = `TİTCK tarama ürünü ${productId.slice(0, 8)}`;
+  hiddenTitckCatalogName = `Gizli TİTCK katalog ürünü ${hiddenTitckProductId.slice(0, 8)}`;
   await sql.begin(async (tx) => {
     await tx`insert into users (id,email,name,email_verified) values
       (${userId},${`${userId}@example.invalid`},'Browser fixture',true),
@@ -80,6 +89,11 @@ test.beforeAll(async () => {
              (${userId},${orgId},'ORDER_HANDOVER','Teslim bilgisi geldi','Siparişiniz için teslim bildirimi yapıldı.',null)`;
     await tx`insert into product_catalog (id,name,type,gtin,control_category)
       values (${productId},${productName},'HUMAN',${productId.replaceAll("-", "").slice(0, 14)},'STANDARD')`;
+    await tx`insert into product_catalog (id,name,type,gtin,source,control_category)
+      values (${hiddenTitckProductId},${hiddenTitckCatalogName},'HUMAN',${hiddenTitckProductId.replaceAll("-", "").slice(0, 14)},'TITCK','STANDARD')`;
+    await tx`insert into titck_skrs_products
+      (gtin,name,atc_code,atc_name,manufacturer,prescription_type,status,source_published_at,source_document_url)
+      values (${titckBarcode},${titckProductName},'N02BE01','Parasetamol','Acceptance üretici','Beyaz Reçete','Aktif','2026-09-15','https://titck.gov.tr/acceptance.xlsx')`;
     await tx`insert into product_batches
       (id,organization_id,product_id,lot_number_encrypted,submitted_name,expiry_date,unit_reference_value_kurus,total_quantity,available_quantity,reserved_quantity,transferred_quantity)
       values (${batchId},${senderOrgId},${productId},'fixture',${productName},'2030-12-31',2500,40,20,0,4)`;
@@ -137,6 +151,20 @@ test("organization session is isolated, badges update, and logout returns to UI"
   await expect(page.getByLabel("1 okunmamış mesaj")).toHaveCount(0);
   await expect(page.getByLabel("1 okunmamış bildirim")).toBeVisible();
 
+  await page.goto("/ilan-olustur");
+  const barcodeInput = page.getByLabel("İlaç barkodu");
+  await barcodeInput.fill(titckBarcode);
+  await barcodeInput.press("Enter");
+  await expect(page.getByRole("status")).toContainText("TİTCK/SKRS listesiyle eşleşti");
+  await expect(page.getByLabel("İlaç adı")).toHaveValue(titckProductName);
+  await expect(page.getByText("N02BE01", { exact: true })).toBeVisible();
+
+  const unknownBarcode = "99999999999999";
+  await barcodeInput.fill(unknownBarcode);
+  await barcodeInput.press("Enter");
+  await expect(page.getByRole("status")).toContainText("manuel girin");
+  await expect(page.getByLabel("İlaç adı")).toBeEditable();
+
   await page.goto("/pazar-yeri");
   await page.getByRole("link", { name: "İlanı ve alım geçmişini incele" }).first().click();
   await expect(page).toHaveURL(new RegExp(`/pazar-yeri/${listingId}$`));
@@ -186,4 +214,8 @@ test("super admin can inspect complete order details", async ({ context, page })
   await expect(orderCard.getByText("Sender Pharmacy")).toBeVisible();
   await orderCard.getByText("Teslim kayıtları ve itirazlar", { exact: true }).click();
   await expect(orderCard.getByText("Acceptance delivery note")).toBeVisible();
+
+  await page.goto("/admin36100?tab=barcodes");
+  await expect(page.getByRole("heading", { level: 2, name: "Yeni barkod ekle" })).toBeVisible();
+  await expect(page.locator("body")).not.toContainText(hiddenTitckCatalogName);
 });
