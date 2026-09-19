@@ -26,7 +26,8 @@ Son güncelleme: 20 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 - [x] Yeni erişim ve bildirim davranışları gerçek yerel PostgreSQL üzerinde 5 entegrasyon testiyle doğrulandı.
 - [x] Masaüstü ve mobil Chrome’da 6 uçtan uca test geçti: ilan ayrıntısı/alım geçmişi, aktif-geçmiş sipariş ayrımı, iki taraf bilgileri, büyük teslim bildirimi, bildirim silme, admin tam sipariş ayrıntısı, yetki ayrımı ve güvenli çıkış. Tarayıcı konsol hatası bulunmadı.
 - [x] Son doğrulama: TypeScript, ESLint, 31 dosya / 133 birim testi, gerçek PostgreSQL entegrasyon testleri ve 28 sayfalı Next.js Production build geçti.
-- [ ] Bu çalışma için GitHub `main` gönderimi, Vercel Production dağıtımı ve canlı smoke testi yapılacak.
+- [x] Kod `40c2f82` commit’iyle GitHub `main` dalına gönderildi. Vercel Production dağıtımı `dpl_2H4VVpsJXpJdpf59j27ExS8d22wE` 46 saniyede `READY` oldu ve `www.etaks.com.tr`, `etaks.com.tr` ile `etakas.vercel.app` alan adlarına bağlandı.
+- [x] Canlı smoke testi: kanonik ana sayfa HTTPS `200`, kök alan adı kalıcı `308`, korumalı pazar yeri anonim kullanıcıyı girişe yönlendirdi; tarayıcıda ana içerik ve gezinme doğrulandı, konsol hatası ve son 10 dakikalık Vercel hata logu bulunmadı.
 
 ## 19 Eylül 2026 son kabul çalışması
 
