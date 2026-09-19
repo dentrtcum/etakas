@@ -33,6 +33,7 @@ export default async function DashboardPage() {
   const capacity = calculateCreditCapacity({
     balanceKurus: overview.balance,
     heldKurus: overview.held,
+    pendingIncomingKurus: overview.pendingIncoming,
     lowerLimitCapacityKurus: organization.creditLimitKurus,
     upperLimitKurus: organization.creditUpperLimitKurus
   });
@@ -72,6 +73,7 @@ export default async function DashboardPage() {
               <div><dt>İzin verilen alt sınır</dt><dd>−{formatValue(organization.creditLimitKurus)}</dd></div>
               <div><dt>Kalan alım kapasitesi</dt><dd>{formatValue(capacity.buyingCapacityKurus)}</dd></div>
               <div><dt>İzin verilen üst sınır</dt><dd>{organization.creditUpperLimitKurus === null ? "Sınırsız" : formatValue(organization.creditUpperLimitKurus)}</dd></div>
+              <div><dt>Devam eden satışlardan beklenen</dt><dd>{formatValue(overview.pendingIncoming)}</dd></div>
               <div><dt>Kalan satış kapasitesi</dt><dd>{capacity.sellingCapacityKurus === null ? "Sınırsız" : formatValue(capacity.sellingCapacityKurus)}</dd></div>
             </dl>
             <p>Limit artışı gerekiyorsa yöneticiyle iletişime geçin.</p>

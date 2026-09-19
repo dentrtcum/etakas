@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const [user, cookieStore] = await Promise.all([getCurrentAppUser(), cookies()]);
   return (
-    <html lang="tr">
+    <html lang="tr" data-scroll-behavior="smooth">
       <body>
         <a className="skip-link" href="#icerik">
           İçeriğe geç

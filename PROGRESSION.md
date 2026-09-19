@@ -4,7 +4,7 @@ Son güncelleme: 19 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 
 ## Güncel durum
 
-- Son yayınlanan uygulama commit'i: `0728dc8` (`main`). Asıl 0006 özellik commit'i `c3eb091`.
+- Son yayınlanan uygulama commit'i: `0687477` (`main`). Son dokümantasyon commit'i `a363106`; bu kayıt `[skip ci]` ile yayın tetiklemedi.
 - Vercel projesi: `dicrocoellium/etakas`.
 - Eski Vercel adresi çalışıyor: `https://etakas.vercel.app`.
 - Yeni kanonik adres: `https://www.etaks.com.tr`.
@@ -12,6 +12,24 @@ Son güncelleme: 19 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 - Vercel CLI alan adını `configured_correctly`, projeye bağlı ve doğrulanmış olarak bildirdi. `www` HTTPS üzerinden `200` döndürüyor.
 - Genel DNS: `dns1.turhost.com` / `dns2.turhost.com`; kök A kaydı `216.198.79.1`; `www` CNAME kaydı `adb8269a24912b22.vercel-dns-017.com`.
 - Kullanıcı gerçek CAPTCHA, Gmail parola yenileme bağlantısı, giriş doğrulama kodu, parola değişikliği ve oturumlu çıkış akışlarını doğruladı.
+- Kullanıcı 19 Eylül 2026 tarihinde hukuki metinlerin ve ilaç devrine ilişkin mesleki/resmî uygunluğun incelenip onaylandığını bildirdi.
+
+## 19 Eylül 2026 son kabul çalışması
+
+- [x] Boş üst kredi sınırının `0 TL` sayılması düzeltildi; boş değer yeniden sınırsız üst limit oluşturuyor.
+- [x] Adminin mevcut bakiye düzeltmesine istemci üretimli idempotency anahtarı eklendi. Aynı istek tekrarlandığında bakiye ikinci kez değişmiyor; farklı içerikle anahtar tekrar kullanılırsa `409` dönüyor.
+- [x] Kalan satış kapasitesi hesabına devam eden satışlardan beklenen tutar eklendi; kullanıcı arayüzünde ayrıca gösteriliyor.
+- [x] Devam eden işlem sayısı tüm açık sipariş durumlarını kapsayacak şekilde ortak durum listesine bağlandı.
+- [x] Mesaj rozeti sayfa yenilemeden güncelleniyor. Mesajlar sayfasına girmek bütün mesajları okundu yapmıyor; yalnızca açılan görüşmede ekranda gösterilen mesaj kimlikleri okunuyor.
+- [x] Migration `0007_message_read_tracking` canlı Neon veritabanına uygulandı; bağımsız sorgu `notifications.message_id` sütununu ve toplam `7` migration kaydını doğruladı.
+- [x] Migration öncesi canlı yedek: `.cache/backups/etakas-before-0007-2026-09-19T19-41-45.dump`, `133383` bayt, SHA-256 `ddb88b545e45007fa662fa324af98760132a4ee1444c1153ffc4de53ba72cdb2`.
+- [x] Bu yedek ayrı yerel `restore_0007` veritabanına geri yüklendi; `1` kullanıcı, `1` işletme ve `6` migration kaydı açıldı.
+- [x] Gerçek yerel PostgreSQL ile 5 kabul testi geçti: eşzamanlı sipariş sınırı, negatif bakiye, iptal/teslim tekrarı, admin bakiye idempotency, sohbet ve destek erişim ayrımı.
+- [x] Masaüstü ve mobil Chrome'da 4 uçtan uca kabul testi geçti: genel/hukuki sayfalar, işletme paneli, rozet güncellemesi, normal kullanıcının admin reddi ve güvenli çıkış. Tarayıcı konsol hatası görülmedi.
+- [x] Son doğrulama: TypeScript ve ESLint geçti; 30 dosyada 130 birim testi geçti; npm audit `0` bilinen açık bildirdi; Next.js Production build geçti.
+- [x] Vercel Production ortamına `LEGAL_CONTENT_APPROVED` eklendi.
+- [ ] Otomatik onay denetimi mevcut `TRADING_MODE` ve `LEGAL_APPROVAL_CONFIRMED` kayıtlarının Preview kapsamını da etkileyebileceğini bildirdi. Açık onaydan sonra bu değerler ile `LIVE_TRADING_ENABLED` kesinleştirilecek ve yeniden yayın yapılacak.
+- [ ] Doğrulanmış son değişiklikleri commit edip GitHub `main` dalına göndermek ve oluşan Vercel Production yayınını doğrulamak. Otomatik onay denetimi geniş kapsamlı `git add -A` + `main` push işlemi için ayrıca açık onay istedi.
 - Uygulama üretimde; aşağıdaki kabul ve kurumsal e-posta işleri tamamlanmadan tam yayın hazır kabul edilmeyecek.
 
 ## Tamamlanan işler
@@ -77,11 +95,11 @@ Son güncelleme: 19 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 - [ ] Normal işletmenin admin paneline ve başka işletmenin verilerine erişemediğini; hesap kilidi, hız sınırı, eski/tekrar kullanılan kodlar ve oturum geçersizleştirmesini uçtan uca test etmek.
 - [ ] Eşzamanlı ve tekrarlanan sipariş/iptal/teslim/iade isteklerinde stok ve bakiyenin tutarlı kaldığını gerçek test veritabanıyla doğrulamak.
 - [ ] Mobil görünüm, farklı tarayıcılar, klavye erişimi ve hata durumlarının son tasarım kontrolünü yapmak.
-- [ ] Hukuki metinleri ve işletmeci bilgilerini son incelemeden geçirmek; saklama, aktarım ve başvuru süreçlerini kesinleştirmek. Bu inceleme tamamlanmadan `LEGAL_CONTENT_APPROVED` açılmamalı.
-- [ ] Gerçek ilaç devrinin hukuki/resmî uygunluk ve ürün doğrulama gerekliliklerini tamamlamak. Canlı işlem bayrakları ancak bu koşullardan sonra değerlendirilmeli.
-- [ ] Ayrı veritabanında yedekten geri yükleme provası; hata izleme ve geri dönüş kontrolleri.
+- [x] Kullanıcı hukuki metinlerin ve işletmeci bilgilerinin incelenip onaylandığını bildirdi; `LEGAL_CONTENT_APPROVED` Production ortamına eklendi.
+- [x] Kullanıcı gerçek ilaç devrinin hukuki/resmî uygunluğunun incelenip onaylandığını bildirdi.
+- [x] Ayrı veritabanında canlı yedekten geri yükleme provası tamamlandı.
 - [ ] Geçici migration/teşhis dosyaları ve yerel sırların gerekli temizliği; özel yedeği koruma.
-- [ ] Son kod üzerinde TypeScript, ESLint, birim testleri, üretim derlemesi ve güncel bağımlılık audit'i; sonuçları bu dosyaya kaydetmek.
+- [x] Son kod üzerinde TypeScript, ESLint, birim testleri, üretim derlemesi ve güncel bağımlılık audit'i tamamlandı; sonuçlar yukarıya kaydedildi.
 
 ## Korunacak kararlar
 

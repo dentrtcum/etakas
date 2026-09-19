@@ -27,6 +27,7 @@ import {
 import { assertMarketplaceVisibility } from "@/modules/marketplace/marketplace-policy";
 import type { OrganizationKind, ProductKind } from "@/modules/compliance/trading-policy";
 import { assertAdminOrderDecision, type AdminOrderDecision } from "@/modules/orders/order-state";
+import { OPEN_ORDER_STATUSES } from "@/modules/orders/open-statuses";
 export type { AdminOrderDecision } from "@/modules/orders/order-state";
 import {
   orderActionSchema,
@@ -53,17 +54,6 @@ function calculateLedgerBalance(entries: LedgerEntryRow[]) {
     0
   );
 }
-
-const OPEN_ORDER_STATUSES = [
-  "RESERVED",
-  "CONTACT_DETAILS_REVEALED",
-  "SELLER_PREPARING",
-  "READY_FOR_PICKUP",
-  "HANDOVER_DECLARED",
-  "BUYER_CONFIRMATION_PENDING",
-  "DISPUTED",
-  "ADMIN_FROZEN"
-] as const;
 
 export async function createOrderReservation(actor: AppSessionUser, input: OrderCreationInput) {
   input = orderCreationSchema.parse(input);

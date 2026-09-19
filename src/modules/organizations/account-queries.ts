@@ -20,6 +20,7 @@ import { decryptField } from "@/lib/encryption/field-crypto";
 import { serverEnv } from "@/lib/env";
 import { assertOrganizationRead } from "@/lib/db/access";
 import { SecurityError } from "@/lib/security/request-guards";
+import { OPEN_ORDER_STATUSES } from "@/modules/orders/open-statuses";
 export const getAccountContext = cache(async () => {
   const actor = await getCurrentAppUser();
   if (!actor) redirect("/giris?next=/panel");
@@ -43,7 +44,7 @@ export async function getAccountOverview(organizationId: string) {
     .from(ledgerAccounts)
     .where(eq(ledgerAccounts.organizationId, organizationId))
     .limit(1);
-  const [[listingCount], [orderCount], balance, held] = await Promise.all([
+  const [[listingCount], [orderCount], balance, held, [pendingIncoming]] = await Promise.all([
     db
       .select({ value: count() })
       .from(listings)
@@ -57,12 +58,7 @@ export async function getAccountOverview(organizationId: string) {
             eq(orders.buyerOrganizationId, organizationId),
             eq(orders.sellerOrganizationId, organizationId)
           ),
-          inArray(orders.status, [
-            "RESERVED",
-            "BUYER_CONFIRMATION_PENDING",
-            "DISPUTED",
-            "ADMIN_FROZEN"
-          ])
+          inArray(orders.status, [...OPEN_ORDER_STATUSES])
         )
       ),
     account
@@ -84,13 +80,16 @@ export async function getAccountOverview(organizationId: string) {
               isNull(balanceHolds.consumedAt)
             )
           )
-      : Promise.resolve([{ value: 0 }])
+      : Promise.resolve([{ value: 0 }]),
+    db.select({ value: sql<number>`coalesce(sum(${orders.totalReferenceValueKurus}),0)::bigint` })
+      .from(orders).where(and(eq(orders.sellerOrganizationId, organizationId), inArray(orders.status, [...OPEN_ORDER_STATUSES])))
   ]);
   return {
     listingCount: listingCount.value,
     orderCount: orderCount.value,
     balance: Number(balance[0].value),
     held: Number(held[0].value),
+    pendingIncoming: Number(pendingIncoming.value),
     accountId: account?.id
   };
 }

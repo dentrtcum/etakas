@@ -54,7 +54,9 @@ export async function getNavigationBadgeCounts(userId: string) {
   };
 }
 
-export async function markMessageNotificationsRead(userId: string) {
+export async function markMessageNotificationsRead(userId: string, messageIds: string[]) {
+  const ids = z.array(z.string().uuid()).max(500).parse(messageIds);
+  if (!ids.length) return { ok: true };
   await getDb()
     .update(notifications)
     .set({ readAt: new Date() })
@@ -62,6 +64,7 @@ export async function markMessageNotificationsRead(userId: string) {
       and(
         eq(notifications.userId, userId),
         eq(notifications.type, "NEW_MESSAGE"),
+        inArray(notifications.messageId, ids),
         isNull(notifications.readAt)
       )
     );

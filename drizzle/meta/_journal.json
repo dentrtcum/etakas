@@ -43,6 +43,13 @@
       "when": 1789762695614,
       "tag": "0006_platform_communications",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789819707759,
+      "tag": "0007_message_read_tracking",
+      "breakpoints": true
     }
   ]
 }

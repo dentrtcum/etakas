@@ -649,6 +649,7 @@ export const notifications = pgTable(
       onDelete: "cascade"
     }),
     type: varchar("type", { length: 120 }).notNull(),
+    messageId: uuid("message_id").references(() => conversationMessages.id, { onDelete: "set null" }),
     title: varchar("title", { length: 180 }).notNull(),
     body: text("body").notNull(),
     isAnnouncement: boolean("is_announcement").notNull().default(false),

@@ -1,23 +1,22 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
 
-export function MessageReadMarker({ hasUnreadMessages }: { hasUnreadMessages: boolean }) {
-  const router = useRouter();
+export function MessageReadMarker({ messageIds }: { messageIds: string[] }) {
+  const ids = JSON.stringify(messageIds);
+  const lastSentIds = useRef("");
 
   useEffect(() => {
-    if (!hasUnreadMessages) return;
-    const controller = new AbortController();
+    if (ids === "[]" || lastSentIds.current === ids) return;
+    lastSentIds.current = ids;
     void fetch("/api/messages/read", {
       method: "POST",
-      headers: { Accept: "application/json" },
-      signal: controller.signal
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({ messageIds: JSON.parse(ids) }),
     }).then((response) => {
-      if (response.ok) router.refresh();
+      if (response.ok) window.dispatchEvent(new Event("notifications-updated"));
     }).catch(() => undefined);
-    return () => controller.abort();
-  }, [hasUnreadMessages, router]);
+  }, [ids]);
 
   return null;
 }

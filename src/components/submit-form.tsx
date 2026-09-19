@@ -1,8 +1,9 @@
 "use client";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { LoaderCircle, CircleAlert, CheckCircle2 } from "lucide-react";
 const errors: Record<string, string> = {
+  IDEMPOTENCY_CONFLICT: "Önceki bakiye işlemi farklı bilgilerle kaydedilmiş. Hesap hareketlerini kontrol edip sayfayı yenileyin.",
   INVALID_ORIGIN: "Güvenlik doğrulaması başarısız. Sayfayı yenileyip tekrar deneyin.",
   RATE_LIMITED: "Kısa sürede çok fazla işlem yaptınız. Bir süre bekleyip tekrar deneyin.",
   CAPTCHA_REQUIRED: "Lütfen güvenlik doğrulamasını tamamlayın.",
@@ -70,6 +71,7 @@ export function SubmitForm({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const adjustmentKey = useRef<string | null>(null);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
@@ -84,12 +86,17 @@ export function SubmitForm({
     }
     setPending(true);
     try {
+      const payload = { ...values, ...Object.fromEntries(data) };
+      if (endpoint === "/api/admin/credit-limits" && values.operation === "ADJUST_BALANCE") {
+        adjustmentKey.current ??= crypto.randomUUID();
+        payload.idempotencyKey = adjustmentKey.current;
+      }
       const response = await fetch(endpoint, {
         method: "POST",
         headers: json
           ? { "Content-Type": "application/json", Accept: "application/json" }
           : { Accept: "application/json" },
-        body: json ? JSON.stringify({ ...values, ...Object.fromEntries(data) }) : data
+        body: json ? JSON.stringify(payload) : data
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok)
@@ -100,6 +107,8 @@ export function SubmitForm({
               : "İşlem tamamlanamadı. Bilgileri ve işlem durumunu kontrol edip tekrar deneyin.")
         );
       setSuccess(true);
+      window.dispatchEvent(new Event("notifications-updated"));
+      adjustmentKey.current = null;
       if (redirectTo) router.push(redirectTo);
       router.refresh();
     } catch (e) {

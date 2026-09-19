@@ -18,7 +18,10 @@ export function AnnouncementModal({ announcement }: { announcement?: { id: strin
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ notificationId: activeAnnouncement.id })
       });
-      if (response.ok) router.refresh();
+      if (response.ok) {
+        window.dispatchEvent(new Event("notifications-updated"));
+        router.refresh();
+      }
     } finally {
       setPending(false);
     }

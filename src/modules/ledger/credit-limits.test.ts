@@ -35,4 +35,9 @@ describe("credit limits", () => {
       })
     ).toEqual({ buyingCapacityKurus: 140_000, sellingCapacityKurus: 150_000 });
   });
+  it("reserves selling capacity for pending sales", () => {
+    expect(calculateCreditCapacity({ balanceKurus: 50_000, heldKurus: 0,
+      lowerLimitCapacityKurus: 100_000, upperLimitKurus: 200_000,
+      pendingIncomingKurus: 120_000 }).sellingCapacityKurus).toBe(30_000);
+  });
 });

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentAppUser } from "@/lib/auth/current-user";
 import { AnnouncementModal } from "@/components/announcement-modal";
+import { NavigationBadge, NavigationBadges } from "@/components/navigation-badge";
 import {
   getNavigationBadgeCounts,
   listUnreadAnnouncements
@@ -16,7 +17,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <>
       <AnnouncementModal announcement={announcements[0]} />
-      <nav className="account-tabs" aria-label="Hesap menüsü">
+      <NavigationBadges initial={badgeCounts}><nav className="account-tabs" aria-label="Hesap menüsü">
         {[
           { href: "/panel", label: "Genel bakış", count: 0 },
           { href: "/pazar-yeri", label: "Pazar yeri", count: 0 },
@@ -26,20 +27,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
           { href: "/destek", label: "Şikayet ve talepler", count: 0 },
           { href: "/bildirimler", label: "Bildirimler", count: badgeCounts.notifications },
           { href: "/hesabim", label: "İşletmem", count: 0 }
-        ].map(({ href, label, count }) => (
+        ].map(({ href, label }) => (
           <Link key={href} href={href}>
             {label}
-            {Number(count) > 0 && (
-              <span
-                className="nav-badge"
-                aria-label={`${count} okunmamış ${label.toLocaleLowerCase("tr-TR")}`}
-              >
-                {Number(count) > 99 ? "99+" : count}
-              </span>
-            )}
+            {href === "/mesajlar" && <NavigationBadge kind="messages" label="mesaj" />}
+            {href === "/bildirimler" && <NavigationBadge kind="notifications" label="bildirim" />}
           </Link>
         ))}
-      </nav>
+      </nav></NavigationBadges>
       {children}
     </>
   );

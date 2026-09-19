@@ -190,6 +190,7 @@ export async function sendOrganizationMessage({
           userId,
           organizationId: recipientId,
           type: "NEW_MESSAGE",
+          messageId: message.id,
           title: "Yeni işletme mesajı",
           body: "Başka bir işletmeden yeni mesaj aldınız. Mesajlar bölümünden görüntüleyebilirsiniz."
         }))

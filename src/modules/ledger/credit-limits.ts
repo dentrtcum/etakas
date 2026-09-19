@@ -27,17 +27,19 @@ export function isBalanceWithinCreditLimits(
 export function calculateCreditCapacity({
   balanceKurus,
   heldKurus,
+  pendingIncomingKurus = 0,
   lowerLimitCapacityKurus,
   upperLimitKurus
 }: {
   balanceKurus: number;
   heldKurus: number;
+  pendingIncomingKurus?: number;
   lowerLimitCapacityKurus: number;
   upperLimitKurus: number | null;
 }) {
   return {
     buyingCapacityKurus: Math.max(0, balanceKurus - heldKurus + lowerLimitCapacityKurus),
     sellingCapacityKurus:
-      upperLimitKurus === null ? null : Math.max(0, upperLimitKurus - balanceKurus)
+      upperLimitKurus === null ? null : Math.max(0, upperLimitKurus - balanceKurus - pendingIncomingKurus)
   };
 }
