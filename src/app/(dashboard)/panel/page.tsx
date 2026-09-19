@@ -7,6 +7,7 @@ import {
   getOwnListings
 } from "@/modules/organizations/account-queries";
 import { isAdmin } from "@/lib/auth/roles";
+import { calculateCreditCapacity } from "@/modules/ledger/credit-limits";
 export default async function DashboardPage() {
   const { actor, organization } = await getAccountContext();
   if (!organization)
@@ -29,6 +30,12 @@ export default async function DashboardPage() {
     getAccountOverview(organization.id),
     getOwnListings(organization.id)
   ]);
+  const capacity = calculateCreditCapacity({
+    balanceKurus: overview.balance,
+    heldKurus: overview.held,
+    lowerLimitCapacityKurus: organization.creditLimitKurus,
+    upperLimitKurus: organization.creditUpperLimitKurus
+  });
   return (
     <main className="page-container">
       <PageHeading
@@ -53,12 +60,24 @@ export default async function DashboardPage() {
         </p>
       )}
       <div className="stat-grid">
+        <div className="stat-card balance-card">
+          <small>Kullanılabilir bakiye</small>
+          <strong>{formatValue(overview.balance)}</strong>
+          <em>Hesabınızdaki mevcut para veya borç</em>
+          <details className="balance-details">
+            <summary>Detayları göster</summary>
+            <dl>
+              <div><dt>Mevcut bakiye</dt><dd>{formatValue(overview.balance)}</dd></div>
+              <div><dt>Devam eden alımlar için ayrılan</dt><dd>{formatValue(overview.held)}</dd></div>
+              <div><dt>İzin verilen alt sınır</dt><dd>−{formatValue(organization.creditLimitKurus)}</dd></div>
+              <div><dt>Kalan alım kapasitesi</dt><dd>{formatValue(capacity.buyingCapacityKurus)}</dd></div>
+              <div><dt>İzin verilen üst sınır</dt><dd>{organization.creditUpperLimitKurus === null ? "Sınırsız" : formatValue(organization.creditUpperLimitKurus)}</dd></div>
+              <div><dt>Kalan satış kapasitesi</dt><dd>{capacity.sellingCapacityKurus === null ? "Sınırsız" : formatValue(capacity.sellingCapacityKurus)}</dd></div>
+            </dl>
+            <p>Limit artışı gerekiyorsa yöneticiyle iletişime geçin.</p>
+          </details>
+        </div>
         {[
-          [
-            "Kullanılabilir bakiye",
-            formatValue(overview.balance - overview.held + organization.creditLimitKurus),
-            `Gerçek bakiye ${formatValue(overview.balance)} · alt sınır −${formatValue(organization.creditLimitKurus)}`
-          ],
           ["Rezerve bakiye", formatValue(overview.held), "Devam eden siparişler"],
           ["İlanlarım", overview.listingCount, "Tüm ilan kayıtlarınız"],
           ["Devam eden işlemler", overview.orderCount, "Sipariş ve itirazlar"]

@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { EmptyState, PageHeading, formatDate } from "@/components/ui";
 import { SubmitForm } from "@/components/submit-form";
+import { MessageReadMarker } from "@/components/message-read-marker";
 import { getAccountContext } from "@/modules/organizations/account-queries";
 import {
   listConversationMessages,
   listConversations,
   listMessagingOrganizations
 } from "@/modules/communications/service";
+import { getNavigationBadgeCounts } from "@/modules/notifications/service";
 
 export default async function MessagesPage({ searchParams }: { searchParams: Promise<{ conversation?: string; to?: string }> }) {
   const { actor, organization } = await getAccountContext();
@@ -16,11 +18,13 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
     listConversations(actor, organization.id),
     listMessagingOrganizations(organization.id)
   ]);
+  const badgeCounts = await getNavigationBadgeCounts(actor.id);
   const active = threads.find((thread) => thread.id === params.conversation);
   const messages = active ? await listConversationMessages(actor, organization.id, active.id) : [];
   const selectedRecipient = recipients.find((item) => item.id === params.to);
   return (
     <main className="page-container">
+      <MessageReadMarker hasUnreadMessages={badgeCounts.messages > 0} />
       <PageHeading eyebrow="İŞLETME İLETİŞİMİ" title="Mesajlar" description="Onaylı işletmelerle doğrudan ve kayıtlı biçimde görüşün." />
       <div className="message-layout">
         <aside className="panel-card message-sidebar">

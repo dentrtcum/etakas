@@ -23,9 +23,17 @@ const errors: Record<string, string> = {
   INVALID_LISTING_SUBMISSION: "Barkod, tarih, miktar ve referans değerini kontrol edin.",
   ORGANIZATION_NOT_APPROVED: "İşletmeniz onaylandıktan sonra bu işlemi yapabilirsiniz.",
   PERSISTENCE_NOT_CONFIGURED: "Bağlantı henüz hazır değil. Lütfen daha sonra yeniden deneyin.",
-  "Insufficient takas balance.": "Kullanılabilir takas bakiyeniz bu işlem için yeterli değil.",
+  "Insufficient takas balance.":
+    "Bu alım hesabınızın alt kredi sınırını aşar. Limit artışı için yöneticiyle iletişime geçin.",
+  "Buyer lower credit limit would be exceeded.":
+    "Bu işlem hesabınızın alt kredi sınırını aşar. Limit artışı için yöneticiyle iletişime geçin.",
   "Seller upper credit limit would be exceeded.":
-    "Satıcı işletmenin üst kredi sınırı bu işlemle aşılacağı için rezervasyon yapılamadı.",
+    "Satıcı işletmenin üst kredi sınırı bu işlemle aşılacağı için işlem yapılamadı. Limit artışı için yöneticiyle iletişime geçin.",
+  CREDIT_LIMIT_CONFLICT:
+    "Yeni sınırlar mevcut bakiye veya bekleyen işlemlerle çelişiyor. Önce bakiyeyi ya da açık işlemleri düzenleyin.",
+  BALANCE_LIMIT_EXCEEDED:
+    "Bu bakiye değişikliği hesabın alt veya üst sınırını aşar. Önce kredi sınırlarını güncelleyin.",
+  LEDGER_ACCOUNT_MISSING: "İşletmenin takas hesabı bulunamadı. Hesap kurulumunu kontrol edin.",
   BARCODE_ALREADY_EXISTS: "Bu barkod katalogda başka bir ürüne bağlı.",
   INVALID_MESSAGE: "Mesaj alanını kontrol edin.",
   INVALID_SUPPORT_REQUEST: "Şikayet veya talep bilgilerini kontrol edin.",

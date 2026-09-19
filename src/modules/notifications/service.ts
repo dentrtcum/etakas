@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import type { AppSessionUser } from "@/lib/auth/roles";
 import { requireAdmin } from "@/lib/auth/authorization";
@@ -29,6 +29,43 @@ export async function listUnreadAnnouncements(userId: string) {
     )
     .orderBy(notifications.createdAt)
     .limit(10);
+}
+
+export async function getNavigationBadgeCounts(userId: string) {
+  const [allUnread, unreadMessages] = await Promise.all([
+    getDb()
+      .select({ value: count() })
+      .from(notifications)
+      .where(and(eq(notifications.userId, userId), isNull(notifications.readAt))),
+    getDb()
+      .select({ value: count() })
+      .from(notifications)
+      .where(
+        and(
+          eq(notifications.userId, userId),
+          eq(notifications.type, "NEW_MESSAGE"),
+          isNull(notifications.readAt)
+        )
+      )
+  ]);
+  return {
+    notifications: allUnread[0]?.value ?? 0,
+    messages: unreadMessages[0]?.value ?? 0
+  };
+}
+
+export async function markMessageNotificationsRead(userId: string) {
+  await getDb()
+    .update(notifications)
+    .set({ readAt: new Date() })
+    .where(
+      and(
+        eq(notifications.userId, userId),
+        eq(notifications.type, "NEW_MESSAGE"),
+        isNull(notifications.readAt)
+      )
+    );
+  return { ok: true };
 }
 
 export async function markNotificationRead(userId: string, notificationId: string) {

@@ -197,7 +197,10 @@ export default async function AdminPage({
         {tab === "organizations" && (
           <section className="panel-card">
             <h2 className="panel-title">Tüm işletmeler için kredi sınırları</h2>
-            <p className="subtext mb-4">Onaylı işletmelerin alt ve üst sınırlarını tek işlemle güncelleyin.</p>
+            <p className="subtext mb-4">
+              Onaylı işletmelerin izin verilen en düşük ve en yüksek bakiye sınırlarını güncelleyin.
+              Bu işlem işletmelerin mevcut bakiyelerini değiştirmez.
+            </p>
             <SubmitForm endpoint="/api/admin/credit-limits" json values={{ applyToAll: true, operation: "SET_LIMITS" }} label="Toplu sınırları uygula">
               <div className="form-grid">
                 <label>Alt sınır (TL, 0 veya negatif)<input name="lowerLimit" type="number" max={0} min={-1000000} step="0.01" required defaultValue={0} /></label>
@@ -293,6 +296,10 @@ export default async function AdminPage({
                 )}
                 <details className="border-t border-[var(--line)] pt-4 mt-5">
                   <summary className="text-sm font-semibold">Takas kredi sınırlarını yönet</summary>
+                  <p className="subtext mt-3">
+                    Alt ve üst sınırlar yalnızca hesabın izin verilen bakiye aralığını belirler;
+                    mevcut bakiyeye para eklemez veya bakiyeden para düşmez.
+                  </p>
                   <SubmitForm
                     className="mt-4"
                     endpoint="/api/admin/credit-limits"
@@ -320,9 +327,20 @@ export default async function AdminPage({
                       </label>
                     </div>
                   </SubmitForm>
-                  <SubmitForm className="mt-5" endpoint="/api/admin/credit-limits" json values={{ organizationId: row.id, operation: "ADJUST_LOWER" }} label="Alt sınırı değiştir">
+                  <SubmitForm
+                    className="mt-5"
+                    endpoint="/api/admin/credit-limits"
+                    json
+                    values={{ organizationId: row.id, operation: "ADJUST_BALANCE" }}
+                    label="Bakiyeyi güncelle"
+                    successMessage="İşletmenin mevcut bakiyesi güncellendi."
+                  >
                     <div className="form-grid">
-                      <label>Değişiklik (TL)<input type="number" step="0.01" min={-1000000} max={1000000} name="limitDelta" required placeholder="Örn. 1000 veya -1000" /></label>
+                      <label>
+                        Mevcut bakiye değişikliği (TL)
+                        <input type="number" step="0.01" min={-1000000} max={1000000} name="balanceDelta" required placeholder="Para eklemek için 1000, düşmek için -1000" />
+                        <small>Bu işlem gerçek bakiyeye muhasebe hareketi olarak işlenir.</small>
+                      </label>
                       <label>Gerekçe<textarea name="reason" minLength={10} maxLength={2000} required rows={2} /></label>
                     </div>
                   </SubmitForm>

@@ -54,6 +54,17 @@ function calculateLedgerBalance(entries: LedgerEntryRow[]) {
   );
 }
 
+const OPEN_ORDER_STATUSES = [
+  "RESERVED",
+  "CONTACT_DETAILS_REVEALED",
+  "SELLER_PREPARING",
+  "READY_FOR_PICKUP",
+  "HANDOVER_DECLARED",
+  "BUYER_CONFIRMATION_PENDING",
+  "DISPUTED",
+  "ADMIN_FROZEN"
+] as const;
+
 export async function createOrderReservation(actor: AppSessionUser, input: OrderCreationInput) {
   input = orderCreationSchema.parse(input);
   assertLiveTradingEnabled();
@@ -240,10 +251,19 @@ export async function createOrderReservation(actor: AppSessionUser, input: Order
         .select({ direction: ledgerEntries.direction, amountKurus: ledgerEntries.amountKurus })
         .from(ledgerEntries)
         .where(eq(ledgerEntries.accountId, sellerAccount.id));
+      const [pendingSellerCredits] = await tx
+        .select({ value: sql<number>`coalesce(sum(${orders.totalReferenceValueKurus}), 0)::bigint` })
+        .from(orders)
+        .where(
+          and(
+            eq(orders.sellerOrganizationId, listing.sellerOrganizationId),
+            inArray(orders.status, [...OPEN_ORDER_STATUSES])
+          )
+        );
       if (
         exceedsUpperCreditLimit(
           calculateLedgerBalance(sellerEntries),
-          totalReferenceValueKurus,
+          Number(pendingSellerCredits.value) + totalReferenceValueKurus,
           seller.creditUpperLimitKurus
         )
       ) {
@@ -607,17 +627,53 @@ async function completeOrderInTransaction(
   if (!buyerAccount || !sellerAccount) {
     throw new OrderFlowError("Ledger account is missing.");
   }
+  const [buyerLimits] = await tx
+    .select({ creditLimitKurus: organizations.creditLimitKurus })
+    .from(organizations)
+    .where(eq(organizations.id, order.buyerOrganizationId))
+    .limit(1);
   const [sellerLimits] = await tx
     .select({ creditUpperLimitKurus: organizations.creditUpperLimitKurus })
     .from(organizations)
     .where(eq(organizations.id, order.sellerOrganizationId))
     .limit(1);
+  if (buyerLimits) {
+    const buyerEntries = await tx
+      .select({ direction: ledgerEntries.direction, amountKurus: ledgerEntries.amountKurus })
+      .from(ledgerEntries)
+      .where(eq(ledgerEntries.accountId, buyerAccount.id));
+    const buyerHolds = await tx
+      .select({ amountKurus: balanceHolds.amountKurus })
+      .from(balanceHolds)
+      .where(
+        and(
+          eq(balanceHolds.accountId, buyerAccount.id),
+          isNull(balanceHolds.releasedAt),
+          isNull(balanceHolds.consumedAt)
+        )
+      );
+    const balanceAfterOpenPurchases =
+      calculateLedgerBalance(buyerEntries) -
+      buyerHolds.reduce((sum, item) => sum + item.amountKurus, 0);
+    if (balanceAfterOpenPurchases < -buyerLimits.creditLimitKurus) {
+      throw new OrderFlowError("Buyer lower credit limit would be exceeded.");
+    }
+  }
   if (sellerLimits?.creditUpperLimitKurus !== null && sellerLimits?.creditUpperLimitKurus !== undefined) {
     const sellerEntries = await tx
       .select({ direction: ledgerEntries.direction, amountKurus: ledgerEntries.amountKurus })
       .from(ledgerEntries)
       .where(eq(ledgerEntries.accountId, sellerAccount.id));
-    if (exceedsUpperCreditLimit(calculateLedgerBalance(sellerEntries), order.totalReferenceValueKurus, sellerLimits.creditUpperLimitKurus)) {
+    const [pendingSellerCredits] = await tx
+      .select({ value: sql<number>`coalesce(sum(${orders.totalReferenceValueKurus}), 0)::bigint` })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.sellerOrganizationId, order.sellerOrganizationId),
+          inArray(orders.status, [...OPEN_ORDER_STATUSES])
+        )
+      );
+    if (exceedsUpperCreditLimit(calculateLedgerBalance(sellerEntries), Number(pendingSellerCredits.value), sellerLimits.creditUpperLimitKurus)) {
       throw new OrderFlowError("Seller upper credit limit would be exceeded.");
     }
   }

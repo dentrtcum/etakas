@@ -306,6 +306,40 @@ button {
   background: #e9f0df;
   border-color: #dbe6cd;
 }
+.balance-details {
+  border-top: 1px solid #cad8bd;
+  margin-top: 14px;
+  padding-top: 12px;
+}
+.balance-details summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary-strong);
+}
+.balance-details dl {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+.balance-details dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+}
+.balance-details dt {
+  color: var(--muted);
+}
+.balance-details dd {
+  font-weight: 700;
+  text-align: right;
+}
+.balance-details p {
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 12px;
+}
 .empty-state {
   padding: 55px 20px;
   text-align: center;
@@ -659,6 +693,21 @@ button {
   border-radius: 8px;
   background: #fff;
   border: 1px solid var(--line);
+  gap: 7px;
+}
+.nav-badge {
+  align-items: center;
+  background: #b42318;
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 800;
+  justify-content: center;
+  line-height: 1;
+  min-height: 20px;
+  min-width: 20px;
+  padding: 4px 6px;
 }
 .account-tabs a:hover {
   background: #e9f0df;
