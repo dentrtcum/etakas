@@ -4,7 +4,7 @@ Son güncelleme: 19 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 
 ## Güncel durum
 
-- Son yayınlanan uygulama commit'i: `ccfdc42` (`main`).
+- Son yayınlanan uygulama commit'i: `adf21bb` (`main`).
 - Vercel projesi: `dicrocoellium/etakas`.
 - Eski Vercel adresi çalışıyor: `https://etakas.vercel.app`.
 - Yeni kanonik adres: `https://www.etaks.com.tr`.
@@ -18,6 +18,7 @@ Son güncelleme: 19 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 
 - [x] İşletme kaydındaki il ve ilçe alanları 81 il ve seçilen ile bağlı 973 ilçeyi sunan listelere dönüştürüldü; API geçersiz il-ilçe eşleşmelerini reddediyor.
 - [x] İl-ilçe değişikliği TypeScript, ESLint, 31 dosya / 133 birim testi ve Production build ile doğrulandı. Tarayıcıda il seçilmeden ilçe alanının kapalı, Kars seçildiğinde yalnızca bağlı sekiz ilçenin açık olduğu ve konsol hatası bulunmadığı kontrol edildi.
+- [x] `adf21bb` GitHub `main` dalına gönderildi. Vercel Production deployment `dpl_ANwoRzyf9X1rqHVXiQYEs4Z5GK1Y` 41 saniyelik build sonrasında `READY` oldu; kanonik alan adında il-ilçe seçimi ve Turnstile bileşeni hatasız doğrulandı, son bir saatlik hata logu taramasında kayıt bulunmadı.
 - [x] Boş üst kredi sınırının `0 TL` sayılması düzeltildi; boş değer yeniden sınırsız üst limit oluşturuyor.
 - [x] Adminin mevcut bakiye düzeltmesine istemci üretimli idempotency anahtarı eklendi. Aynı istek tekrarlandığında bakiye ikinci kez değişmiyor; farklı içerikle anahtar tekrar kullanılırsa `409` dönüyor.
 - [x] Kalan satış kapasitesi hesabına devam eden satışlardan beklenen tutar eklendi; kullanıcı arayüzünde ayrıca gösteriliyor.
