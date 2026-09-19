@@ -4,7 +4,7 @@ Son güncelleme: 20 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 
 ## Güncel durum
 
-- Son yayınlanan uygulama commit'i: `adf21bb` (`main`).
+- Son özellik commit'i: `2d3fc88` (`main`).
 - Vercel projesi: `dicrocoellium/etakas`.
 - Eski Vercel adresi çalışıyor: `https://etakas.vercel.app`.
 - Yeni kanonik adres: `https://www.etaks.com.tr`.
@@ -24,7 +24,8 @@ Son güncelleme: 20 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 - [x] İçe aktarma işlemi 1.000'den az satırlı şüpheli dosyayı ve mevcut sürümden eski resmi listeyi reddediyor; güncelleme tek transaction içinde uygulanıyor.
 - [x] Yerel doğrulama: TypeScript, ESLint, 31 dosya / 134 birim testi, gerçek PostgreSQL üzerinde 6 entegrasyon testi, 28 sayfalı Production build ve masaüstü/mobil Chromium'da 6 uçtan uca test geçti. Tarayıcı konsol hatası bulunmadı.
 - [x] Canlı Neon yedeği alındı ve ayrı yerel veritabanına geri yükleme provası yapıldı. `0008` migration'ı uygulandı; 7.945 etkin resmi kayıt içe aktarıldı ve mevcut iş kayıtlarının korunduğu bağımsız sorguyla doğrulandı.
-- [ ] Kodu GitHub/Vercel Production'a yayımlamak ve kanonik alanda smoke testi yapmak.
+- [x] Kod `2d3fc88` commit'iyle GitHub `main` dalına gönderildi. Vercel Production deployment `dpl_DMUrkTPEFFw7jE2g5ozfEpqNiGmg` 47 saniyelik build sonunda `READY` oldu ve tüm üretim alan adlarına bağlandı.
+- [x] Canlı smoke testi: `www` ana sayfa ve giriş `200`, kök alan adı `308`, barkod API anonim isteği `401`; güvenlik başlıkları, giriş ekranındaki Turnstile, tarayıcı konsolu ve son 10 dakikalık Vercel hata logları temiz.
 
 ## 20 Eylül 2026 sipariş, ilan ve bildirim çalışması
 

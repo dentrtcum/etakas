@@ -32,4 +32,12 @@ Tarih: 20 Eylül 2026
 - Migration ve içe aktarım sonrasında 2 kullanıcı, 2 işletme, 1 manuel ürün, 1 ilan ve 1 sipariş korundu.
 - TİTCK aktarımı yalnızca ayrı resmi katalog tablosunu değiştirdi; manuel katalog, kullanıcı, işletme, ilan ve sipariş satırlarını silmedi.
 
+## Yayın
+
+- Özellik commit'i: `2d3fc88`.
+- Vercel Production deployment: `dpl_DMUrkTPEFFw7jE2g5ozfEpqNiGmg`.
+- Durum: `READY`; build süresi 47 saniye.
+- Alan adları: `www.etaks.com.tr`, `etaks.com.tr`, `etakas.vercel.app`.
+- Canlı smoke testi ve son 10 dakikalık hata logu taraması temiz sonuçlandı.
+
 Yenileme prosedürü ve koruma kuralları [TITCK-SKRS.md](TITCK-SKRS.md) dosyasındadır.
