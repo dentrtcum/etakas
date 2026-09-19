@@ -60,7 +60,7 @@ Son güncelleme: 19 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 - [x] Kod değişiklikleri `c3eb091` commit'iyle GitHub `main` dalına gönderildi.
 - [x] Vercel kesintisi sonrasında yeniden tetiklenen `dpl_B9zKmdvMWp7aRQqMaysC2Xt9VosU` Production deployment'ı `READY` oldu; `www.etaks.com.tr`, kök alan adı ve `etakas.vercel.app` bu sürüme bağlandı.
 
-## Geliştirmede tamamlanan, henüz yayınlanmayan bakiye ve sayaç düzenlemesi
+## Bakiye ve sayaç düzenlemesi
 
 - [x] Mesajlar ve Bildirimler menü düğmelerine okunmamış kayıt sayacı; Mesajlar sayfası açıldığında yeni mesaj uyarılarını okundu işaretleyen kullanıcı kapsamlı akış.
 - [x] Alt ve üst kredi limitlerinin yalnızca izin verilen bakiye aralığı olduğu netleştirildi; limit güncellemesi gerçek bakiyeyi değiştirmiyor.
@@ -68,7 +68,8 @@ Son güncelleme: 19 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 - [x] Limit değişikliği mevcut bakiye/rezervasyonlarla çelişirse; bakiye ayarı, alım veya satış sınırı aşarsa işlem engelleniyor ve yöneticiyle iletişim uyarısı gösteriliyor.
 - [x] Genel bakıştaki Kullanılabilir bakiye gerçek mevcut borç/parayı gösteriyor; açılır ayrıntıda rezerve tutar, alt/üst sınır ile kalan alım/satış kapasitesi yer alıyor.
 - [x] Yerel doğrulama: TypeScript, ESLint, 29 dosya / 126 test ve 26 sayfalı Next.js Production build geçti.
-- [ ] Değişiklikleri commit/push etmek, Vercel Production'a dağıtmak ve oturumlu kullanıcı/admin akışlarını canlıda doğrulamak.
+- [x] Değişiklikler `0687477` commit'iyle GitHub `main` dalına gönderildi; `dpl_9aQuPdhhMBi6XR8twnCSnasSddc9` Production deployment'ı `READY` oldu ve alan adlarına bağlandı.
+- [ ] Okunmamış sayaç, mesaj okuma temizliği, bakiye ayrıntısı ve admin bakiye değişikliğini oturumlu gerçek kullanıcıyla canlıda doğrulamak.
 
 ## Sonraki kabul ve yayın işleri
 
@@ -105,7 +106,7 @@ Son güncelleme: 19 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 - **18 Eylül:** 0006 kapsamının son kontrolünde TypeScript, ESLint, 29 dosya / 125 test ve Next.js 16 Production build geçti. Çevrimiçi `npm audit` üretim ve geliştirme bağımlılıklarında 0 bilinen açık bildirdi.
 - **19 Eylül:** `c3eb091` GitHub `main` dalına gönderildi. Vercel Production deployment başlatıldı; resmi Vercel durum sayfasındaki Build & Deploy kısmi kesintisi nedeniyle deployment en az 16 dakika build makinesi atanmadan `Initializing` kaldı. Bu sırada mevcut `www.etaks.com.tr`, `/giris` ve `/isletme-kaydi` sayfaları `200` dönmeye devam etti.
 - **19 Eylül:** Vercel olayı çözüldükten sonra boş `0728dc8` commit'iyle deployment yeniden tetiklendi. `dpl_B9zKmdvMWp7aRQqMaysC2Xt9VosU` 47 saniyelik build ile `READY` oldu; ana sayfa ve kayıt `200`, korumalı Mesajlar rotası anonim istekte girişe `307` döndürdü ve GLN alanı canlı HTML'de doğrulandı.
-- **19 Eylül:** Bakiye/limit ayrımı ve okunmamış sayaç düzenlemesinde TypeScript, ESLint, 29 dosya / 126 test ve Production build geçti; bu paket henüz commit edilmedi veya yayınlanmadı.
+- **19 Eylül:** Bakiye/limit ayrımı ve okunmamış sayaç düzenlemesinde TypeScript, ESLint, 29 dosya / 126 test ve Production build geçti. `0687477` GitHub'a gönderildi; `dpl_9aQuPdhhMBi6XR8twnCSnasSddc9` 50 saniyelik Production build ile `READY` oldu.
 
 ## Yedek ve devam notları
 
