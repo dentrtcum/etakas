@@ -4,7 +4,7 @@ Son güncelleme: 19 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 
 ## Güncel durum
 
-- Son yayınlanan uygulama commit'i: `0687477` (`main`). Son dokümantasyon commit'i `a363106`; bu kayıt `[skip ci]` ile yayın tetiklemedi.
+- Son yayınlanan uygulama commit'i: `ccfdc42` (`main`).
 - Vercel projesi: `dicrocoellium/etakas`.
 - Eski Vercel adresi çalışıyor: `https://etakas.vercel.app`.
 - Yeni kanonik adres: `https://www.etaks.com.tr`.
@@ -28,9 +28,11 @@ Son güncelleme: 19 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 - [x] Masaüstü ve mobil Chrome'da 4 uçtan uca kabul testi geçti: genel/hukuki sayfalar, işletme paneli, rozet güncellemesi, normal kullanıcının admin reddi ve güvenli çıkış. Tarayıcı konsol hatası görülmedi.
 - [x] Son doğrulama: TypeScript ve ESLint geçti; 30 dosyada 130 birim testi geçti; npm audit `0` bilinen açık bildirdi; Next.js Production build geçti.
 - [x] Vercel Production ortamına `LEGAL_CONTENT_APPROVED` eklendi.
-- [ ] Otomatik onay denetimi mevcut `TRADING_MODE` ve `LEGAL_APPROVAL_CONFIRMED` kayıtlarının Preview kapsamını da etkileyebileceğini bildirdi. Açık onaydan sonra bu değerler ile `LIVE_TRADING_ENABLED` kesinleştirilecek ve yeniden yayın yapılacak.
-- [ ] Doğrulanmış son değişiklikleri commit edip GitHub `main` dalına göndermek ve oluşan Vercel Production yayınını doğrulamak. Otomatik onay denetimi geniş kapsamlı `git add -A` + `main` push işlemi için ayrıca açık onay istedi.
-- Uygulama üretimde; aşağıdaki kabul ve kurumsal e-posta işleri tamamlanmadan tam yayın hazır kabul edilmeyecek.
+- [x] Kullanıcının açık izninden sonra `TRADING_MODE=production`, `LEGAL_APPROVAL_CONFIRMED=true` ve `LIVE_TRADING_ENABLED=true` yalnızca Production kapsamına ayrıldı. Preview ortamında gerçek takas açılmadı.
+- [x] Değişiklikler `ccfdc42` commit'iyle GitHub `main` dalına gönderildi; yerel ve uzak commit kimlikleri eşleşiyor.
+- [x] Yeni ortam değerleriyle yeniden dağıtılan `dpl_DvS3E66AQ1ywT8ZvKL3XmBmAC6fM` Production deployment'ı `READY` oldu. `www.etaks.com.tr`, `etaks.com.tr` ve `etakas.vercel.app` bu sürüme bağlandı.
+- [x] Production smoke testi: ana sayfa, giriş ve hukuki sayfalar HTTPS `200`; kök alan adı kanonik `www` adresine yönleniyor; Chromium'da anlamlı içerik, Turnstile bileşeni ve hata katmanı bulunmaması doğrulandı. Son bir saatlik Vercel hata logu taramasında kayıt bulunmadı.
+- Uygulama Production ortamında gerçek işlemlere açıldı. Kurumsal göndericiye geçiş ve aşağıdaki genişletilmiş operasyon kontrolleri takip işi olarak korunuyor.
 
 ## Tamamlanan işler
 
