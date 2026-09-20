@@ -4,7 +4,7 @@ Son güncelleme: 20 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 
 ## Güncel durum
 
-- Son özellik commit'i: `2d3fc88` (`main`).
+- Son özellik commit'i: `220b139` (`main`).
 - Vercel projesi: `dicrocoellium/etakas`.
 - Eski Vercel adresi çalışıyor: `https://etakas.vercel.app`.
 - Yeni kanonik adres: `https://www.etaks.com.tr`.
@@ -19,7 +19,8 @@ Son güncelleme: 20 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 - [x] Admin panelindeki “Kullanıcı güvenliği” sorgusu işletme durumunu dikkate alacak şekilde düzeltildi. Yalnızca `CLOSED` işletmelere bağlı kullanıcılar listeden çıkarılıyor; süper admin ve kapatılmamış en az bir işletmeye bağlı kullanıcılar görünmeye devam ediyor.
 - [x] Filtre veritabanı sorgusunda sayfalama öncesinde uygulanıyor; kapalı kullanıcıların ilk 20 kayıt sınırında boşluk veya yanlış sayfalama oluşturması engellendi.
 - [x] Regresyon testi eklendi. TypeScript, ESLint, 32 dosya / 135 birim testi ve 28 sayfalı Next.js Production build geçti.
-- [ ] GitHub `main` ve Vercel Production yayını tamamlanacak; canlı admin ekranında kapalı işletme kullanıcısının görünmediği doğrulanacak.
+- [x] Düzeltme `220b139` commit’iyle GitHub `main` dalına gönderildi. Vercel Production deployment `dpl_GGLoZgJ1b7Msfk9rNuijVgwnG4A5` 40 saniyede `READY` oldu ve üretim alan adlarına bağlandı.
+- [x] Canlı Neon doğrulamasında 2 kullanıcıdan aktif kapsamda kalan 1 kullanıcı görünürken yalnızca kapalı işletmeye bağlı 1 kullanıcı filtrelendi. Admin rotası anonim isteği güvenli biçimde girişe yönlendirdi ve son 10 dakikalık Vercel hata taraması temizdi.
 
 ## 20 Eylül 2026 TİTCK SKRS barkod kataloğu
 
