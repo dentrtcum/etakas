@@ -14,6 +14,13 @@ Son güncelleme: 20 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 - Kullanıcı gerçek CAPTCHA, Gmail parola yenileme bağlantısı, giriş doğrulama kodu, parola değişikliği ve oturumlu çıkış akışlarını doğruladı.
 - Kullanıcı 19 Eylül 2026 tarihinde hukuki metinlerin ve ilaç devrine ilişkin mesleki/resmî uygunluğun incelenip onaylandığını bildirdi.
 
+## 20 Eylül 2026 kapatılan işletme kullanıcıları
+
+- [x] Admin panelindeki “Kullanıcı güvenliği” sorgusu işletme durumunu dikkate alacak şekilde düzeltildi. Yalnızca `CLOSED` işletmelere bağlı kullanıcılar listeden çıkarılıyor; süper admin ve kapatılmamış en az bir işletmeye bağlı kullanıcılar görünmeye devam ediyor.
+- [x] Filtre veritabanı sorgusunda sayfalama öncesinde uygulanıyor; kapalı kullanıcıların ilk 20 kayıt sınırında boşluk veya yanlış sayfalama oluşturması engellendi.
+- [x] Regresyon testi eklendi. TypeScript, ESLint, 32 dosya / 135 birim testi ve 28 sayfalı Next.js Production build geçti.
+- [ ] GitHub `main` ve Vercel Production yayını tamamlanacak; canlı admin ekranında kapalı işletme kullanıcısının görünmediği doğrulanacak.
+
 ## 20 Eylül 2026 TİTCK SKRS barkod kataloğu
 
 - [x] Resmi **TİTCK SKRS E-Reçete İlaç ve Diğer Farmasötik Ürünler Listesi** için platformun manuel kataloğundan ayrı `titck_skrs_products` tablosu ve `0008_titck_skrs_catalog` migration'ı oluşturuldu.

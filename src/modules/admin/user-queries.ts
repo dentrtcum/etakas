@@ -1,10 +1,31 @@
 import { desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
-import { organizations, productCatalog, users, userRoles } from "@/lib/db/schema";
+import {
+  organizationMembers,
+  organizations,
+  productCatalog,
+  users,
+  userRoles
+} from "@/lib/db/schema";
 import { assertAdminRead } from "@/lib/db/access";
 
 export async function listAdminUsers(page = 1) {
   await assertAdminRead();
+  const superAdmin = sql<boolean>`exists(
+    select 1
+    from ${userRoles}
+    where ${userRoles.userId} = ${users.id}
+      and ${userRoles.role} = 'SUPER_ADMIN'
+  )`;
+  const hasOpenOrganization = sql<boolean>`exists(
+    select 1
+    from ${organizationMembers}
+    inner join ${organizations}
+      on ${organizations.id} = ${organizationMembers.organizationId}
+    where ${organizationMembers.userId} = ${users.id}
+      and ${organizations.status} <> 'CLOSED'
+  )`;
+
   return getDb()
     .select({
       id: users.id,
@@ -14,9 +35,10 @@ export async function listAdminUsers(page = 1) {
       lockedUntil: users.lockedUntil,
       disabledAt: users.disabledAt,
       createdAt: users.createdAt,
-      superAdmin: sql<boolean>`exists(select 1 from ${userRoles} where ${userRoles.userId} = ${users.id} and ${userRoles.role} = 'SUPER_ADMIN')`
+      superAdmin
     })
     .from(users)
+    .where(sql`${superAdmin} or ${hasOpenOrganization}`)
     .orderBy(desc(users.createdAt), users.id)
     .limit(21)
     .offset((page - 1) * 20);
