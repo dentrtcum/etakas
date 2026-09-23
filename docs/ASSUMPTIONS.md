@@ -8,7 +8,7 @@
 
 ## Geçerli kapsam kararları
 
-- Tek süper admin vardır; işletme kaydı yönetici rolü vermez. Süper admin gerekli kişisel verilere erişebilir.
+- Süper admin rolü yalnızca açık yönetim kararıyla verilir; işletme kaydı yönetici rolü vermez. Yetkilendirilmiş süper adminler gerekli kişisel verilere erişebilir.
 - Admin ve işletme girişlerinde e-posta kodu zorunludur. TOTP, uygulanmış bir koruma olarak varsayılmaz.
 - Alan adı edinilene kadar Gmail uygulama şifresiyle geçici gönderim desteklenir; sırlar sohbette istenmez.
 - Dosya antivirüs taraması kullanıcı isteğiyle kapsam dışıdır. Gerçek e-posta/CAPTCHA/uçtan uca testler sonraki aşamadadır.

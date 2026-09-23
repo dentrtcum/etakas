@@ -6,7 +6,7 @@ Yönetim alanı `/admin36100` adresindedir. E-posta/parola girişi ardından her
 
 Kullanıcı güvenliği bölümünde gerekçe belirterek oturumları iptal etme, hesabı kilitleme/kilidi kaldırma ve kayıtlı adrese parola kurtarma e-postası gönderme işlemleri yapılabilir. Yönetici kullanıcının mevcut parolasını göremez veya onun yerine e-posta kodunu doğrulayamaz. Parola yenileme bağlantısını hesap sahibi kullanır; yönetici bir başka alıcı adresi girerek bağlantıyı yönlendiremez.
 
-Geçici deneme kilidi ile yöneticinin koyduğu kalıcı kilit ayrıdır. Parola kurtarma kalıcı kilidi kaldırmaz. Tek süper adminin kendi hesabını veya son süper admini kilitlemesi engellenir. Admin işlemleri gerekçesiyle denetim kaydına yazılır.
+Geçici deneme kilidi ile yöneticinin koyduğu kalıcı kilit ayrıdır. Parola kurtarma kalıcı kilidi kaldırmaz. Bir süper adminin kendi hesabını veya sistemde kalan son süper admini kilitlemesi engellenir. Admin işlemleri gerekçesiyle denetim kaydına yazılır.
 
 ## İşletme, ilan ve siparişler
 

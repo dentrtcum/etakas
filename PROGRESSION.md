@@ -1,6 +1,6 @@
 # Etakas ilerleme kaydı
 
-Son güncelleme: 20 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası devam noktasıdır.
+Son güncelleme: 23 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası devam noktasıdır.
 
 ## Güncel durum
 
@@ -13,6 +13,12 @@ Son güncelleme: 20 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 - Genel DNS: `dns1.turhost.com` / `dns2.turhost.com`; kök A kaydı `216.198.79.1`; `www` CNAME kaydı `adb8269a24912b22.vercel-dns-017.com`.
 - Kullanıcı gerçek CAPTCHA, Gmail parola yenileme bağlantısı, giriş doğrulama kodu, parola değişikliği ve oturumlu çıkış akışlarını doğruladı.
 - Kullanıcı 19 Eylül 2026 tarihinde hukuki metinlerin ve ilaç devrine ilişkin mesleki/resmî uygunluğun incelenip onaylandığını bildirdi.
+
+## 23 Eylül 2026 ikinci süper admin yetkilendirmesi
+
+- [x] Kullanıcının açık talebiyle e-postası doğrulanmış ve etkin ikinci hesaba global `SUPER_ADMIN` rolü verildi; toplam süper admin sayısı 2 olarak bağımsız sorguyla doğrulandı.
+- [x] Yetki yükseltmesinden önce doğrulanmış Neon yedeği alındı. Hedef hesabın mevcut oturumları sonlandırıldı, kimlik doğrulama sürümü artırıldı ve işlem değiştirilemez denetim kaydına yazıldı.
+- [x] İşletme üyeliğinin tek başına yönetici yetkisi vermediği korundu; ilgili hesap yeniden giriş ve e-posta doğrulamasından sonra yönetim alanına erişebilir.
 
 ## 20 Eylül 2026 kapatılan işletme kullanıcıları
 
@@ -78,7 +84,7 @@ Son güncelleme: 20 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 - [x] Güvenlik yaması, bağımlılık yükseltmeleri ve kullanılmayan ikinci kimlik doğrulama altyapısının kaldırılması.
 - [x] Her girişte e-posta kodu; süre, deneme sınırı, tarayıcı bağlama ve tek kullanımlılık.
 - [x] E-postayla parola kurtarma, oturum sürümleme/geçersizleştirme, hesap kilidi ve yönetici güvenlik işlemleri.
-- [x] Tek `SUPER_ADMIN`; işletme kaydı yönetici yetkisi vermez; işletme ve kaynak bazında sunucu yetkilendirmesi.
+- [x] Global `SUPER_ADMIN` rolleri işletme üyeliklerinden ayrı tutulur; işletme kaydı yönetici yetkisi vermez ve işletme/kaynak bazında sunucu yetkilendirmesi uygulanır.
 - [x] Cloudflare Turnstile, kalıcı hız sınırı, Origin/CSRF, istek boyutu ve güvenlik başlıkları.
 - [x] Hız sınırı sorgusundaki PostgreSQL tarih aktarımı hatası `2312ce9` ile düzeltildi ve canlıda doğrulandı.
 - [x] Özel dosyalarda tür/boyut kontrolü, görüntü yeniden kodlama, erişim denetimi ve başarısız işlem temizliği.
@@ -149,7 +155,7 @@ Son güncelleme: 20 Eylül 2026. Bu dosya güncel durum ve kesinti sonrası deva
 - Tebligat adresi: **Aydınlıkevler Mahallesi, Celal Aras Caddesi No: 16, Merkez / Kars**.
 - Logo kaynağı: `logo/EtakasLogo.png`; sitedeki dosya: `public/EtakasLogo.png`.
 - Misafire “Giriş Yap”; giriş yapan kullanıcıya üst bölümde logo ve “Çıkış yap”.
-- Tek süper adminin görevleri için kişisel veri görünürlüğü korunur.
+- Yetkilendirilmiş süper adminlerin görevleri için kişisel veri görünürlüğü korunur.
 - Antivirüs dosya taraması kullanıcının isteğiyle kapsam dışında.
 - Alan adının bağlanması gerçek takası açma onayı değildir. `LIVE_TRADING_ENABLED`, `TRADING_MODE`, `LEGAL_APPROVAL_CONFIRMED` ve `LEGAL_CONTENT_APPROVED` ayrıca değerlendirilir.
 
